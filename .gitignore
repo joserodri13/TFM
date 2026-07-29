@@ -1,0 +1,19 @@
+# Datos: nunca en git. El CSV se queda en tu ordenador.
+data/
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Editor y sistema
+.vscode/
+.idea/
+.DS_Store
