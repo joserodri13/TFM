@@ -311,7 +311,28 @@ incoherencias a medida que el proyecto crece.
 las entradas anteriores de este diario. La convención general se mantiene:
 identificadores de código en inglés, redacción en español.
 
----
+## 2026-07-29 — Pruebas de la estación 1 (Load)
+
+**Resultado:** `tests/test_load.py` con cuatro pruebas: dimensiones, tipo de
+índice, orden y unicidad del índice, y desaparición de las columnas Date y
+Time.
+
+**Descartadas dos pruebas adicionales:**
+
+- *Ausencia de saltos horarios.* Redundante: si el número de filas y el rango
+  temporal son correctos, la continuidad de la serie se deduce por aritmética.
+
+- *Verificación del formato europeo de fecha* (comprobar los valores concretos
+  de fecha mínima y máxima). Es la única prueba capaz de detectar una lectura
+  de fechas invertida, ya que las cuatro restantes la superarían: `sort_index()`
+  deja el índice ordenado tanto si las fechas son correctas como si no. Se
+  descarta porque, con este fichero concreto, una interpretación errónea del
+  formato lanzaría una excepción al llegar al día 13 de un mes, de modo que el
+  fallo sería ruidoso y no silencioso. La prueba recuperaría su valor si el
+  conjunto de datos cambiase por otro cuyos días no superasen el 12.
+
+**Criterio general adoptado:** se prueban los fallos que pueden producirse sin
+lanzar ningún error, no todo lo que el código hace.
 
 ## Plantilla para nuevas entradas
 

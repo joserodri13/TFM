@@ -205,7 +205,8 @@ Machine Learning Repository y colócalo en `data/raw/`.
   de datos
 - Cada decisión de diseño queda registrada con su fecha y su motivo en
   `docs/decisiones.md`
-- Cada estación del pipeline tiene sus propias pruebas automáticas
+- Cada estación del pipeline tiene sus propias pruebas automáticas, ejecutables
+  con `pytest` desde la raíz del proyecto
 
 ---
 

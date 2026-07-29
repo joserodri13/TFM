@@ -19,4 +19,4 @@ df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], format='%d/%m/%Y 
 df = df.drop(['Date', 'Time'], axis=1)
 df = df.set_index('DateTime')
 df = df.sort_index()
-print(df.head())
+print(df)
