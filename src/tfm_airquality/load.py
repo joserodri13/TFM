@@ -1,10 +1,7 @@
 import pandas as pd
-from pathlib import Path
+from tfm_airquality import config
 
-RAIZ = Path(__file__).resolve().parents[2]
-PATH_CSV = RAIZ / "data" / "raw" / "AirQuality.csv"
-
-def load_airquality_data(csv_path=PATH_CSV):
+def load_airquality_data(csv_path=config.PATH_CSV):
     """
     Carga el fichero de origen del dataset Air Quality (UCI).
 

@@ -1,55 +1,6 @@
 from dataclasses import dataclass, field
 import pandas as pd
-
-# Las 13 columnas que debe tener la tabla tras la estación 1 (Load).
-EXPECTED_COLUMNS = [
-    'CO(GT)', 'PT08.S1(CO)', 'NMHC(GT)', 'C6H6(GT)', 'PT08.S2(NMHC)',
-    'NOx(GT)', 'PT08.S3(NOx)', 'NO2(GT)', 'PT08.S4(NO2)', 'PT08.S5(O3)',
-    'T', 'RH', 'AH',
-]
-
-# Marcador de dato ausente del dataset. No es una medición.
-MISSING_SENTINEL = -200
-
-# Variable objetivo del proyecto.
-TARGET = 'NO2(GT)'
-
-# Cotas de plausibilidad: lo que sería imposible medir. NO son límites
-# legales. Superar el límite legal es un episodio de contaminación, no un
-# error de medición, y detectarlo es el objetivo del proyecto: NO2 supera los
-# 200 µg/m³ en 386 horas de este mismo fichero.
-PLAUSIBLE_RANGES = {
-    # Meteorología: límites físicos.
-    'T': (-15.0, 50.0),          # °C. Extremos históricos en Italia.
-    'RH': (0.0, 100.0),          # %. Definición de humedad relativa.
-    'AH': (0.0, 5.0),            # máx. observado 2,2.
-
-    # Analizador de referencia. Límite legal entre paréntesis, solo como
-    # referencia: la cota es muy superior a propósito.
-    'CO(GT)': (0.0, 50.0),       # mg/m³ (legal 8h: 10). Máx. obs. 11,9.
-    'C6H6(GT)': (0.0, 200.0),    # µg/m³ (legal anual: 5). Máx. obs. 63,7.
-    'NOx(GT)': (0.0, 3000.0),    # ppb, sin límite legal propio. Máx. obs. 1479.
-    'NO2(GT)': (0.0, 1000.0),    # µg/m³ (legal horario: 200). Máx. obs. 340.
-    'NMHC(GT)': (0.0, 3000.0),   # µg/m³. Máx. obs. 1189.
-
-    # Sensores MOX: señal eléctrica en unidades arbitrarias, no
-    # concentraciones. La cota responde al rango del hardware, no a
-    # normativa alguna. Máximos observados entre 2040 y 2775.
-    'PT08.S1(CO)': (0.0, 4000.0),
-    'PT08.S2(NMHC)': (0.0, 4000.0),
-    'PT08.S3(NOx)': (0.0, 4000.0),
-    'PT08.S4(NO2)': (0.0, 4000.0),
-    'PT08.S5(O3)': (0.0, 4000.0),
-}
-
-# Número de filas esperado. Informativo: puede cambiar legítimamente si se
-# usa otra versión del dataset.
-EXPECTED_ROWS = 9357
-
-# Porcentaje mínimo de valores observados del objetivo para que modelar
-# tenga sentido.
-MIN_TARGET_COVERAGE = 50.0
-
+from tfm_airquality import config
 
 @dataclass
 class Check:
@@ -106,8 +57,8 @@ class ValidationReport:
 
 def check_columns(df):
     """Comprueba que están las 13 columnas esperadas y ninguna más."""
-    faltan = set(EXPECTED_COLUMNS) - set(df.columns)
-    sobran = set(df.columns) - set(EXPECTED_COLUMNS)
+    faltan = set(config.EXPECTED_COLUMNS) - set(df.columns)
+    sobran = set(df.columns) - set(config.EXPECTED_COLUMNS)
 
     if faltan or sobran:
         problemas = []
@@ -168,11 +119,11 @@ def check_ranges(df):
     """
     problemas = []
 
-    for col, (minimo, maximo) in PLAUSIBLE_RANGES.items():
+    for col, (minimo, maximo) in config.PLAUSIBLE_RANGES.items():
         if col not in df.columns:
             continue
         serie = df[col]
-        serie = serie[serie != MISSING_SENTINEL].dropna()
+        serie = serie[serie != config.MISSING_SENTINEL].dropna()
         fuera = serie[(serie < minimo) | (serie > maximo)]
         if len(fuera) > 0:
             problemas.append(
@@ -191,10 +142,10 @@ def check_ranges(df):
 
 def check_row_count(df):
     """Informa si el número de filas difiere del esperado."""
-    if len(df) != EXPECTED_ROWS:
+    if len(df) != config.EXPECTED_ROWS:
         return Check(
             "nº de filas", False,
-            f"{len(df)} filas, se esperaban {EXPECTED_ROWS}",
+            f"{len(df)} filas, se esperaban {config.EXPECTED_ROWS}",
             bloqueante=False,
         )
     return Check("nº de filas", True, f"{len(df)} filas", bloqueante=False)
@@ -207,7 +158,7 @@ def check_missing_sentinel(df):
     Nunca falla: la abundancia de ausentes es una característica del dataset,
     no un defecto del fichero. El recuento es documental.
     """
-    por_columna = (df == MISSING_SENTINEL).sum()
+    por_columna = (df == config.MISSING_SENTINEL).sum()
     total = int(por_columna.sum())
     celdas = df.size
 
@@ -225,22 +176,22 @@ def check_missing_sentinel(df):
 
 def check_target_coverage(df):
     """Informa de si el objetivo tiene cobertura suficiente para modelar."""
-    if TARGET not in df.columns:
-        return Check("cobertura objetivo", False, f"falta {TARGET}", bloqueante=False)
+    if config.TARGET not in df.columns:
+        return Check("cobertura objetivo", False, f"falta {config.TARGET}", bloqueante=False)
 
-    serie = df[TARGET]
-    observados = int(((serie != MISSING_SENTINEL) & serie.notna()).sum())
+    serie = df[config.TARGET]
+    observados = int(((serie != config.MISSING_SENTINEL) & serie.notna()).sum())
     pct = 100 * observados / len(df)
 
-    if pct < MIN_TARGET_COVERAGE:
+    if pct < config.MIN_TARGET_COVERAGE:
         return Check(
             "cobertura objetivo", False,
-            f"solo {pct:.1f}% de {TARGET} observado (mínimo {MIN_TARGET_COVERAGE}%)",
+            f"solo {pct:.1f}% de {config.TARGET} observado (mínimo {config.MIN_TARGET_COVERAGE}%)",
             bloqueante=False,
         )
     return Check(
         "cobertura objetivo", True,
-        f"{observados} horas observadas de {TARGET} ({pct:.1f}%)",
+        f"{observados} horas observadas de {config.TARGET} ({pct:.1f}%)",
         bloqueante=False,
     )
 

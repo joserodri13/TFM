@@ -414,6 +414,61 @@ no demuestra nada.
 - `NO2(GT)`: 7.715 horas observadas, el 82,5 %. Cobertura holgada para modelar.
 - Marcador -200: 16.701 celdas, el 13,7 % del total.
 
+## 2026-07-29 — Umbral de interpolación: 2 horas
+
+**Decisión:** solo se interpolan las rachas de valores ausentes cuya longitud
+completa no supera las 2 horas.
+
+**Cómo se eligió:** en lugar de fijarlo por intuición, se midió el error que
+introduce la interpolación. Se tomaron tramos con dato observado, se taparon
+artificialmente, se interpolaron y se comparó lo estimado con lo real, para
+longitudes de hueco de 1 a 12 horas.
+
+Error absoluto medio de la interpolación en `NO2(GT)`, en µg/m³:
+
+| Hueco | 1 h | 2 h | 3 h | 5 h | 8 h | 12 h |
+|---|---|---|---|---|---|---|
+| MAE | 9,4 | 12,4 | 14,6 | 19,3 | 26,5 | 27,6 |
+
+**Hallazgo:** el error crece de forma suave y continua. **No existe ningún
+punto de ruptura** que sugiera un umbral natural, de modo que la elección es
+una decisión de compromiso y no una obviedad. Una hipótesis inicial de 5 horas
+—basada en que la señal de los sensores varía poco a corto plazo— quedó
+debilitada por estos números.
+
+**Argumento de la elección:**
+
+1. Con umbral de 5 horas, el error de interpolación (19,3 µg/m³) sería
+   comparable al error del propio modelo de referencia por persistencia a una
+   hora vista. Se estaría inyectando en las variables de entrada un ruido del
+   mismo orden de magnitud que la señal que el proyecto pretende predecir.
+   Con umbral de 2 horas el error es de 12,4 µg/m³, netamente inferior.
+2. El beneficio de ampliar el umbral es marginal: en las columnas de sensores
+   se pasaría de recuperar 3 horas a recuperar 15, sobre un total de 9.357.
+   El coste en error sería del 55 % a cambio de 12 horas de dato.
+
+**Estructura real de los huecos, medida por columna:**
+
+- `NO2(GT)` y `NOx(GT)`: distribución bimodal. Rachas de 1 y 2 horas, y
+  después un salto directo a 12 horas o más, sin nada intermedio.
+- `CO(GT)` y las columnas de la placa de sensores: distribución continua, con
+  rachas de 3, 4, 5, 8, 9 y 10 horas. **No hay zona vacía**, por lo que el
+  argumento de "el umbral cae en un tramo sin datos" solo es válido para la
+  variable objetivo.
+
+**Concentración de las pérdidas:** en `NO2(GT)`, 320 de las 344 rachas son de
+una sola hora, pero 21 averías de 12 horas o más concentran 1.316 de las 1.642
+horas perdidas. El 80 % del dato ausente proviene de una veintena de paradas
+del equipo, no de ruido disperso.
+
+**Indicio confirmado sobre el benceno (primero de los tres anotados el 24 de
+julio):** nueve columnas presentan exactamente el mismo patrón de ausencias
+—366 valores, 16 rachas, máxima de 76 horas e idéntica distribución de
+longitudes—: los cinco sensores PT08, `T`, `RH`, `AH` y **`C6H6(GT)`**. Las
+demás variables del analizador de referencia (`CO`, `NOx`, `NO2`) tienen
+patrones propios y distintos. El benceno falla cuando falla la placa de
+sensores, no cuando falla el analizador.
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve
