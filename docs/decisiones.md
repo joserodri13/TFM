@@ -190,7 +190,55 @@ más que un modelo sofisticado dentro de un trabajo incompleto.
 (estación 11), por ser exactamente las fases que los tutores señalaron como
 ausentes en las propuestas.
 
----
+## 2026-07-29 — Diagnóstico del fichero de origen
+
+**Contexto:** primera lectura del CSV antes de escribir el código de la
+estación 1 (ingesta).
+
+**Hallazgo principal:** el fichero viene en formato europeo, con punto y coma
+como separador de campos y coma como separador decimal. Una lectura con los
+valores por defecto de pandas (`pd.read_csv(ruta)`) **no lanza ningún error**:
+devuelve una tabla de 9.471 filas y **una sola columna**, en la que los quince
+nombres de variable quedan concatenados como si fueran el nombre de esa única
+columna, y los datos como texto.
+
+Ver `docs/capturas/01-lectura-ingenua-una-columna.png`.
+
+**Por qué importa:** este es el tipo de fallo más peligroso en un proyecto de
+datos, porque no interrumpe la ejecución. El programa termina correctamente y
+devuelve un objeto válido; solo el contenido es basura. Sin una comprobación
+explícita, el error puede propagarse durante horas de trabajo antes de
+detectarse, o no detectarse nunca.
+
+**Consecuencia directa:** justifica la existencia de la estación 2
+(validación) como parada obligatoria del pipeline. No basta con que el código
+se ejecute sin errores: hay que comprobar activamente que el dato leído es el
+esperado.
+
+**Otras anomalías detectadas en la misma exploración:**
+
+1. **Dos columnas fantasma.** Cada línea del fichero termina en `;;`, lo que
+   induce a pandas a crear dos columnas adicionales sin nombre
+   (`Unnamed: 15`, `Unnamed: 16`), completamente vacías.
+2. **Ciento catorce filas vacías al final del fichero.** El fichero contiene
+   9.471 líneas de datos frente a los 9.357 registros que declara la
+   documentación del dataset. Las 114 sobrantes no tienen fecha ni hora ni
+   ningún valor.
+3. **Discrepancia con la documentación del origen.** La descripción del
+   dataset indica que las mediciones abarcan de marzo de 2004 a febrero de
+   2005. Pendiente de confirmar con el código propio si el rango real coincide.
+
+**Decisión:** la lectura se realiza especificando explícitamente `sep=';'` y
+`decimal=','`. Las columnas fantasma y las filas vacías se eliminan en la
+propia estación de ingesta, por tratarse de artefactos del formato del fichero
+y no de datos ausentes reales.
+
+**Descartado:** especificar `encoding='latin-1'`. Se comprobó que el resultado
+de la lectura es idéntico con y sin ese parámetro, ya que los nombres de
+columna del fichero no contienen caracteres acentuados. Se omite para no
+sugerir en el código un problema de codificación que no existe.
+
+**Estado:** estación 1 en curso.
 
 ## Plantilla para nuevas entradas
 
