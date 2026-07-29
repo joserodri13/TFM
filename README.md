@@ -118,7 +118,7 @@ coincide con el de su módulo de código.
 | # | Estación | Módulo | Qué produce | Estado |
 |---|---|---|---|---|
 | 1 | Load | `load.py` | Tabla con sello temporal, ordenada | **Hecha** |
-| 2 | Validate | `validate.py` | Contrato de datos verificado | Pendiente |
+| 2 | Validate | `validate.py` | Data contract verificado | **Hecha** |
 | 3 | Clean | `clean.py` | Huecos tratados, columnas descartadas | Pendiente |
 | 4 | EDA | `eda.py` | Gráficos y hallazgos documentados | Pendiente |
 | 5 | Features | `features.py` | Retardos, medias móviles, calendario | Pendiente |

@@ -334,6 +334,86 @@ Time.
 **Criterio general adoptado:** se prueban los fallos que pueden producirse sin
 lanzar ningún error, no todo lo que el código hace.
 
+## 2026-07-29 — Cotas de plausibilidad de la estación 2 (Validate)
+
+**Decisión:** las cotas de rango se fijan por criterio de plausibilidad física
+y no por los límites legales de calidad del aire.
+
+**Motivo:** son dos conceptos distintos. El límite legal marca lo que no
+debería superarse por salud pública; superarlo es un episodio de
+contaminación, no un error de medición. La cota de plausibilidad marca lo que
+sería imposible medir.
+
+Aplicar los límites legales como cotas de validación haría que el data contract
+rechazase el fichero: `NO2(GT)` supera los 200 µg/m³ del límite horario
+europeo en 386 horas, y su máximo observado es 340. Detectar esas
+superaciones es precisamente el objetivo del proyecto (estación 9,
+Uncertainty), no un motivo para rechazar el dato de entrada.
+
+**Criterio aplicado por tipo de variable:**
+
+- *Meteorología*: límites físicos (humedad relativa entre 0 y 100 por
+  definición; temperatura según extremos históricos en Italia).
+- *Analizador de referencia*: valor holgado sobre el máximo observado, pero
+  suficientemente por debajo de lo que produciría un error de lectura de un
+  orden de magnitud.
+- *Sensores MOX*: rango del hardware. Devuelven señal eléctrica en unidades
+  arbitrarias, no concentraciones, por lo que ninguna normativa les aplica.
+
+**Corrección respecto a una versión anterior:** las cotas iniciales eran
+excesivamente holgadas (hasta un 740 % de margen sobre el máximo observado en
+`CO(GT)`). Una cota que nunca puede saltar no es una comprobación. Se
+ajustaron tras comparar con los rangos reales de cada columna.
+
+**Verificación:** se simuló un error de lectura del separador decimal
+(multiplicación por diez de todos los valores) y el data contract lo detecta en las
+trece columnas. Con las cotas anteriores, varias columnas lo habrían superado
+sin incidencias.
+
+## 2026-07-29 — Estación 2 (Validate) completada
+
+**Resultado:** `src/tfm_airquality/validate.py` con siete comprobaciones que
+conforman el *data contract* del proyecto, más cinco pruebas en
+`tests/test_validate.py`.
+
+**Qué es un data contract:** la lista escrita de todo lo que se da por supuesto
+sobre el fichero de entrada, verificada explícitamente antes de dejar pasar el
+dato al resto del pipeline. Es una práctica reconocida en ingeniería de datos.
+
+**Motivo de su existencia:** el error caro en un proyecto de datos no es el que
+rompe el programa, sino el que no lo rompe. La lectura ingenua del CSV
+devolvía una tabla de una sola columna sin lanzar ninguna excepción. Ninguna
+herramienta de programación protege de eso; solo una comprobación explícita de
+lo esperado.
+
+**Comprobaciones bloqueantes** (detienen el pipeline): columnas esperadas,
+tipos numéricos, índice temporal (tipo, orden, unicidad y continuidad horaria)
+y rangos de plausibilidad.
+
+**Comprobaciones informativas** (avisan sin detener): número de filas, recuento
+del marcador -200 y cobertura de la variable objetivo.
+
+**Criterio del reparto:** bloquea lo que hace imposible continuar o revela un
+error de lectura. Avisa lo que puede variar legítimamente. El recuento de -200
+es informativo porque la abundancia de ausentes es una característica del
+dataset, no un defecto del fichero: su valor es documental.
+
+**Diseño de la implementación:** ninguna comprobación lanza excepciones.
+Todas devuelven un objeto `Check` con su resultado, y la decisión de detener el
+pipeline se toma al final. Así un solo diagnóstico muestra todos los problemas
+a la vez, en lugar de obligar a corregirlos de uno en uno.
+
+**Verificación del contrato:** se comprobó que rechaza tres tipos de deterioro
+—columna ausente, valor físicamente imposible y salto en la serie horaria— y
+que un aviso informativo no lo tumba. Un validador que solo se ha visto pasar
+no demuestra nada.
+
+**Cifras obtenidas** (confirman lo anotado como pendiente el 24 de julio):
+
+- `NMHC(GT)`: 90,2 % de valores ausentes. Confirma su descarte.
+- `NO2(GT)`: 7.715 horas observadas, el 82,5 %. Cobertura holgada para modelar.
+- Marcador -200: 16.701 celdas, el 13,7 % del total.
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve
