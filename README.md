@@ -112,30 +112,42 @@ a "mañana como hoy a la misma hora" no aporta valor, por sofisticado que sea.
 ## El pipeline
 
 El proyecto se construye como una cadena de estaciones. Cada una recibe algo,
-hace una cosa concreta y se la pasa a la siguiente.
+hace una cosa concreta y se la pasa a la siguiente. El nombre de cada estación
+coincide con el de su módulo de código.
 
-| # | Estación | Qué produce | Estado |
-|---|---|---|---|
-| 1 | Ingesta | Tabla con sello temporal, ordenada | Pendiente |
-| 2 | Validación | Contrato de datos verificado | Pendiente |
-| 3 | Limpieza | Huecos tratados, columnas descartadas | Pendiente |
-| 4 | Análisis descriptivo (EDA) | Gráficos y hallazgos documentados | Pendiente |
-| 5 | Ingeniería de variables | Retardos, medias móviles, calendario | Pendiente |
-| 6 | Partición y arnés de evaluación | Baselines y listón a batir | Pendiente |
-| 7 | Modelado | Escalera de modelos comparados | Pendiente |
-| 8 | Interpretabilidad | SHAP y contraste con la química de sensores | Pendiente |
-| 9 | Incertidumbre y alertas | Intervalos y probabilidad de superar umbral | Pendiente |
-| 10 | Empaquetado y servicio | API que recibe datos y devuelve predicción | Pendiente |
-| 11 | Monitorización y drift | Vigilancia de degradación y reentrenamiento | Pendiente |
-| 12 | Memoria | Informe de 20 caras orientado a negocio | Pendiente |
-| 13 | Vídeo y entrega | MP4 de 5 minutos y checklist de la guía | Pendiente |
+| # | Estación | Módulo | Qué produce | Estado |
+|---|---|---|---|---|
+| 1 | Load | `load.py` | Tabla con sello temporal, ordenada | **Hecha** |
+| 2 | Validate | `validate.py` | Contrato de datos verificado | Pendiente |
+| 3 | Clean | `clean.py` | Huecos tratados, columnas descartadas | Pendiente |
+| 4 | EDA | `eda.py` | Gráficos y hallazgos documentados | Pendiente |
+| 5 | Features | `features.py` | Retardos, medias móviles, calendario | Pendiente |
+| 6 | Split | `split.py`, `metrics.py`, `baselines.py` | Baselines y listón a batir | Pendiente |
+| 7 | Model | `model.py` | Escalera de modelos comparados | Pendiente |
+| 8 | Explain | `explain.py` | SHAP y contraste con la química de sensores | Pendiente |
+| 9 | Uncertainty | `uncertainty.py` | Intervalos y probabilidad de superar umbral | Pendiente |
+| 10 | Serve | `serve.py` | API que recibe datos y devuelve predicción | Pendiente |
+| 11 | Monitor | `monitor.py` | Vigilancia de degradación y reentrenamiento | Pendiente |
+| 12 | Memoria | — | Informe de 20 caras orientado a negocio | Pendiente |
+| 13 | Entrega | — | MP4 de 5 minutos y checklist de la guía | Pendiente |
+
+### Correspondencia con las fases exigidas por la guía del TFM
+
+| Fase de la guía | Estación |
+|---|---|
+| i. Análisis descriptivo | 4 (EDA) |
+| ii. Transformaciones | 3 (Clean) y 5 (Features) |
+| iii. Modelos de predicción | 7 (Model) |
+| iv. Interpretabilidad | 8 (Explain) |
+| v. Informe final para negocio | 12 (Memoria) |
+| vi. Productivización | 10 (Serve) y 11 (Monitor) |
 
 ---
 
 ## Hallazgos preliminares
 
 Observaciones detectadas en una exploración inicial, **pendientes de verificar
-con el código del proyecto** en la estación 4:
+con el código del proyecto** en la estación 4 (EDA):
 
 - **El sensor `PT08.S4`, nominalmente dedicado al NO₂, parece ser el menos
   informativo sobre el NO₂.** El más informativo sería el de ozono, `PT08.S5`.
@@ -147,6 +159,15 @@ con el código del proyecto** en la estación 4:
   sería muy alta.
 - **Los valores ausentes parecen estar dominados por unas pocas paradas
   prolongadas del equipo**, no por ruido disperso.
+
+### Verificado
+
+- **El rango real de los datos va del 10/03/2004 al 04/04/2005.** La
+  documentación oficial del dataset indica "marzo de 2004 a febrero de 2005",
+  por lo que hay casi dos meses que la descripción del origen no menciona.
+- **La serie horaria está completa y sin saltos**: el rango temporal contiene
+  exactamente 9.357 horas y la tabla tiene exactamente 9.357 filas, sin
+  duplicados.
 
 ---
 
@@ -185,6 +206,14 @@ Machine Learning Repository y colócalo en `data/raw/`.
 - Cada decisión de diseño queda registrada con su fecha y su motivo en
   `docs/decisiones.md`
 - Cada estación del pipeline tiene sus propias pruebas automáticas
+
+---
+
+## Convenciones
+
+- Identificadores de código (ficheros, funciones, variables) en inglés
+- Comentarios, documentación y diario de decisiones en español
+- Los nombres de las estaciones coinciden con los de sus módulos
 
 ---
 

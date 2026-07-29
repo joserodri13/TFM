@@ -79,7 +79,7 @@ dónde descargarlo.
 | `NOx(GT)` | Sin límite legal propio; se conserva como objetivo secundario |
 
 **Pendiente de verificar:** las cifras concretas de cobertura y de superación
-de umbrales se confirmarán con el código propio en la estación 4.
+de umbrales se confirmarán con el código propio en la estación 4 (EDA).
 
 ---
 
@@ -103,7 +103,7 @@ indicios a comprobar son tres:
 excelente y sin ningún valor, por ser una función determinista de una de las
 propias entradas. Sería un hallazgo destacable para la memoria.
 
-**Estado:** PENDIENTE DE VERIFICAR en la estación 4.
+**Estado:** PENDIENTE DE VERIFICAR en la estación 4 (EDA).
 
 ---
 
@@ -142,16 +142,17 @@ restricción de calendario. Puede incorporarse más adelante si hay tiempo.
 
 **Decisión:** el proyecto se estructura en 13 estaciones, de forma que cada
 fase exigida por la guía tenga su lugar explícito, incluidas las que no son
-código (memoria y vídeo).
+código (memoria y entrega).
 
 **Motivo:** una versión anterior agrupaba varias fases y dejaba fuera del
 pipeline el análisis descriptivo, la interpretabilidad y los entregables
 finales. Al no estar en la lista, corrían el riesgo de quedar relegados al
 final. Con 13 estaciones, nada queda huérfano.
 
-**Correspondencia con la guía:** fase i → estación 4; fase ii → estaciones 3 y
-5; fase iii → estación 7; fase iv → estación 8; fase v → estación 12;
-fase vi → estaciones 10 y 11.
+**Correspondencia con la guía:** fase i → estación 4 (EDA); fase ii →
+estaciones 3 (Clean) y 5 (Features); fase iii → estación 7 (Model); fase iv →
+estación 8 (Explain); fase v → estación 12 (Memoria); fase vi → estaciones 10
+(Serve) y 11 (Monitor).
 
 ---
 
@@ -186,14 +187,16 @@ entre tres y cuatro semanas efectivas. Se prioriza completar el ciclo entero
 frente a profundizar en un solo punto: un sistema completo y coherente puntúa
 más que un modelo sofisticado dentro de un trabajo incompleto.
 
-**No negociable:** interpretabilidad (estación 8) y monitorización
-(estación 11), por ser exactamente las fases que los tutores señalaron como
-ausentes en las propuestas.
+**No negociable:** interpretabilidad (estación 8, Explain) y monitorización
+(estación 11, Monitor), por ser exactamente las fases que los tutores
+señalaron como ausentes en las propuestas.
+
+---
 
 ## 2026-07-29 — Diagnóstico del fichero de origen
 
 **Contexto:** primera lectura del CSV antes de escribir el código de la
-estación 1 (ingesta).
+estación 1 (Load).
 
 **Hallazgo principal:** el fichero viene en formato europeo, con punto y coma
 como separador de campos y coma como separador decimal. Una lectura con los
@@ -210,10 +213,9 @@ devuelve un objeto válido; solo el contenido es basura. Sin una comprobación
 explícita, el error puede propagarse durante horas de trabajo antes de
 detectarse, o no detectarse nunca.
 
-**Consecuencia directa:** justifica la existencia de la estación 2
-(validación) como parada obligatoria del pipeline. No basta con que el código
-se ejecute sin errores: hay que comprobar activamente que el dato leído es el
-esperado.
+**Consecuencia directa:** justifica la existencia de la estación 2 (Validate)
+como parada obligatoria del pipeline. No basta con que el código se ejecute sin
+errores: hay que comprobar activamente que el dato leído es el esperado.
 
 **Otras anomalías detectadas en la misma exploración:**
 
@@ -230,7 +232,7 @@ esperado.
 
 **Decisión:** la lectura se realiza especificando explícitamente `sep=';'` y
 `decimal=','`. Las columnas fantasma y las filas vacías se eliminan en la
-propia estación de ingesta, por tratarse de artefactos del formato del fichero
+propia estación de carga, por tratarse de artefactos del formato del fichero
 y no de datos ausentes reales.
 
 **Descartado:** especificar `encoding='latin-1'`. Se comprobó que el resultado
@@ -238,7 +240,78 @@ de la lectura es idéntico con y sin ese parámetro, ya que los nombres de
 columna del fichero no contienen caracteres acentuados. Se omite para no
 sugerir en el código un problema de codificación que no existe.
 
-**Estado:** estación 1 en curso.
+---
+
+## 2026-07-29 — Estación 1 (Load) completada
+
+**Resultado:** `src/tfm_airquality/load.py` con la función
+`load_airquality_data()`, que devuelve una tabla de 9.357 filas y 13 columnas,
+indexada por `DatetimeIndex` horario y ordenada cronológicamente.
+
+**Decisiones de implementación:**
+
+1. **Formato de lectura declarado explícitamente** (`delimiter=';'`,
+   `decimal=','`), por venir el fichero en formato europeo.
+
+2. **Formato de fecha declarado explícitamente** (`%d/%m/%Y %H.%M.%S`) en
+   lugar de dejar que pandas lo infiera. Se comprobó que la inferencia
+   automática interpreta las fechas como formato americano (mes/día): con
+   este fichero el error se detecta al llegar al 13 de marzo, pero en un
+   conjunto que solo cubriera los doce primeros días de cada mes la serie
+   quedaría desordenada **sin lanzar ningún error**. En un problema de
+   predicción temporal eso invalidaría todos los retardos calculados
+   posteriormente.
+
+   Se optó por declarar los puntos como separador horario dentro del propio
+   formato (`%H.%M.%S`) en lugar de sustituirlos previamente por dos puntos.
+   Evita modificar el dato de origen.
+
+3. **Eliminación de artefactos por criterio explícito.** Las filas finales se
+   eliminan con `subset=['Date', 'Time']` —es decir, "filas sin sello
+   temporal"— y no con `how='any'`. Ambas opciones producen hoy el mismo
+   resultado, pero la segunda eliminaría en silencio cualquier fila que tuviera
+   un solo hueco, que no es la intención.
+
+4. **Ruta construida con `pathlib` a partir de `__file__`.** Una ruta relativa
+   solo funcionaría ejecutando desde la raíz del proyecto. Se verificó que la
+   función carga correctamente tanto desde la raíz como desde otros
+   directorios.
+
+5. **La ruta es un parámetro con valor por defecto**, para poder inyectar
+   ficheros de prueba en los tests sin alterar el comportamiento habitual.
+
+**Alcance deliberadamente limitado:** la estación no limpia ni valida. Los
+valores -200 se conservan intactos, porque la estación 2 (Validate) necesita
+poder contarlos e informar sobre ellos antes de que se conviertan en huecos en
+la estación 3 (Clean).
+
+**Hallazgo confirmado:** el rango real de los datos es del 10/03/2004 al
+04/04/2005. La documentación oficial del dataset indica "marzo de 2004 a
+febrero de 2005", por lo que hay casi dos meses de datos que la descripción del
+origen no menciona. Trasladar a la memoria.
+
+**Verificación adicional:** el rango temporal contiene exactamente 9.357 horas
+y la tabla tiene exactamente 9.357 filas, sin duplicados. La serie está
+completa, sin saltos horarios.
+
+---
+
+## 2026-07-29 — Nomenclatura de las estaciones
+
+**Decisión:** los nombres de las estaciones en la documentación se alinean con
+los de sus módulos de código: Load, Validate, Clean, EDA, Features, Split,
+Model, Explain, Uncertainty, Serve, Monitor. Las estaciones 12 (Memoria) y 13
+(Entrega) conservan nombre en español por no tener módulo asociado.
+
+**Motivo:** tener dos vocabularios en paralelo —"estación de ingesta" frente a
+`load.py`— obliga al lector a traducir constantemente y facilita las
+incoherencias a medida que el proyecto crece.
+
+**Consecuencia:** se actualizan las referencias existentes en `README.md` y en
+las entradas anteriores de este diario. La convención general se mantiene:
+identificadores de código en inglés, redacción en español.
+
+---
 
 ## Plantilla para nuevas entradas
 
