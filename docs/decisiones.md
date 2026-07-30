@@ -414,7 +414,7 @@ no demuestra nada.
 - `NO2(GT)`: 7.715 horas observadas, el 82,5 %. Cobertura holgada para modelar.
 - Marcador -200: 16.701 celdas, el 13,7 % del total.
 
-## 2026-07-29 — Umbral de interpolación: 2 horas
+## 2026-07-30 — Umbral de interpolación: 2 horas
 
 **Decisión:** solo se interpolan las rachas de valores ausentes cuya longitud
 completa no supera las 2 horas.
@@ -468,6 +468,94 @@ longitudes—: los cinco sensores PT08, `T`, `RH`, `AH` y **`C6H6(GT)`**. Las
 demás variables del analizador de referencia (`CO`, `NOx`, `NO2`) tienen
 patrones propios y distintos. El benceno falla cuando falla la placa de
 sensores, no cuando falla el analizador.
+
+## 2026-07-30 — Los huecos de una hora son un ciclo de calibración
+
+**Hallazgo:** los huecos de una sola hora no están distribuidos al azar en el
+día. Se concentran de forma abrumadora en una hora fija:
+
+| Columna | Rachas de 1 h | Hora dominante |
+|---|---|---|
+| `NO2(GT)` | 320 | 304 a las 03:00 |
+| `NOx(GT)` | 321 | 304 a las 03:00 |
+| `CO(GT)` | 145 | 131 a las 04:00 |
+
+**Interpretación:** corresponde al ciclo de autocalibración del analizador de
+referencia, que durante el proceso no mide. NO₂ y NOx caen simultáneamente a
+las 03:00 y CO una hora después, lo que es coherente con canales distintos del
+mismo equipo calibrándose en secuencia.
+
+**Consecuencias:**
+
+1. Refuerza la decisión de interpolar los huecos cortos. No se está rellenando
+   un fallo errático, sino una interrupción programada y predecible.
+2. La ausencia no es completamente aleatoria: se produce siempre a la hora de
+   menor tráfico y menor concentración. Introduce un sesgo pequeño pero real
+   en cualquier estadística horaria nocturna, que conviene declarar.
+
+**Cómo se detectó:** al revisar la salida de `gap_runs` se observó que varias
+rachas consecutivas de una hora tenían la misma hora del día (03:00) en días
+sucesivos. La comprobación de la distribución horaria lo confirmó.
+
+## 2026-07-29 — Descarte de columnas en la estación 3 (Clean)
+
+**Decisión:** solo se descarta `NMHC(GT)`. `C6H6(GT)` se conserva por ahora.
+
+**Motivo del descarte de NMHC:** 90,2 % de valores ausentes, concentrados en 6
+rachas, una de ellas de 8.126 horas consecutivas. El sensor estuvo apagado
+prácticamente todo el periodo, casi 340 días. No hay nada que modelar.
+
+**Motivo de conservar C6H6:** de los tres indicios anotados el 24 de julio
+sobre su posible carácter derivado, solo uno está verificado con código propio
+(el patrón de ausencias idéntico al de la placa de sensores). Los otros dos
+—la correlación con `PT08.S2` y el número de valores distintos— se comprobarán
+en la estación 4 (EDA). Descartar una columna con un indicio de tres sería
+precipitado, y afirmar en la memoria que está derivada del sensor sin haberlo
+comprobado sería una afirmación débil.
+
+**Consecuencia técnica pendiente:** la salida de Clean tiene 12 columnas de
+datos frente a las 13 que exige `config.EXPECTED_COLUMNS`. No supone un
+problema ahora porque Validate se ejecuta antes de Clean, pero habrá que
+resolverlo si en el futuro se valida también la salida de la limpieza.
+
+## 2026-07-30 — Estación 3 (Clean) completada
+
+**Resultado:** `src/tfm_airquality/clean.py` con cinco funciones y seis pruebas
+en `tests/test_clean.py`.
+
+- `sentinel_to_nan`: convierte el marcador -200 en hueco real.
+- `gap_runs`: localiza inicio, fin y longitud de cada racha de huecos.
+- `gap_report`: resumen de huecos por columna.
+- `interpolate_short_gaps`: interpolación selectiva.
+- `add_quality_flags`: metadatos de calidad por fila.
+- `clean`: orquesta las anteriores.
+
+**Cifras resultantes:** 7.396 horas utilizables (con objetivo observado y todas
+las entradas disponibles) de 9.357. Solo 24 celdas del conjunto completo
+proceden de interpolación.
+
+**Decisión: no se eliminan filas.** Las horas sin objetivo observado se
+conservan y se marcan con el indicador booleano `objetivo_observado`, en lugar
+de borrarse. Borrarlas rompería la continuidad horaria de la serie, que es
+justamente lo que comprueba la estación 2: sobre una serie con agujeros, un
+retardo de 24 posiciones no retrocede 24 horas reales. El filtrado se hace en
+el momento de entrenar y evaluar.
+
+**Decisión: el informe de huecos se calcula antes de interpolar**, para que
+describa el estado real del dato de origen y no el resultado de las propias
+intervenciones. Es el que se llevará a la memoria.
+
+**Error corregido durante la implementación:** un primer intento interpolaba
+cada racha corta recortando la serie a los límites del propio hueco. Ese trozo
+contiene únicamente valores ausentes, de modo que la interpolación devolvía
+NaN y no rellenaba nada, sin lanzar ningún error. La versión final interpola la
+serie completa —así cada hueco tiene vecinos con los que estimarse— y solo
+después copia los valores en las posiciones autorizadas por la máscara.
+
+**Prueba más relevante:** `test_hueco_largo_queda_intacto`, que verifica que
+una racha de diez horas no se toca en absoluto. Es la garantía frente al atajo
+`df.interpolate(limit=2)`, que rellenaría las dos primeras horas de una parada
+larga.
 
 ## Plantilla para nuevas entradas
 
