@@ -557,6 +557,45 @@ una racha de diez horas no se toca en absoluto. Es la garantía frente al atajo
 `df.interpolate(limit=2)`, que rellenaría las dos primeras horas de una parada
 larga.
 
+## 2026-07-30 — Correlación por horizonte: tres hallazgos
+
+**1. La correlación oscila con periodo de 24 horas.** Para `PT08.S5(O3)`, cae
+desde 0,708 en el instante actual hasta un mínimo de 0,068 en h+17, repunta a
+0,411 en h+24, vuelve a caer hasta hacerse negativa hacia h+41 y repunta de
+nuevo en h+48. Los máximos coinciden con múltiplos de 24 horas.
+
+Interpretación: el ciclo diario domina la serie. A h+6 se compara una hora del
+día con otra de fase distinta; a h+24 las fases vuelven a alinearse. Es la
+confirmación cuantitativa del ciclo diario y **justifica los retardos de 24 y
+168 horas** de la estación 5: no se incluyen por convención, sino porque la
+correlación repunta ahí.
+
+**2. El pasado del objetivo predice mejor que cualquier sensor.** La
+autocorrelación del NO₂ a 24 horas es 0,71, frente al 0,41 de la mejor
+variable externa (`PT08.S5`). Esto cuantifica la diferencia esperable entre
+escenarios antes de entrenar ningún modelo: el escenario A puede explotar esa
+autocorrelación y el B no. También explica por qué el baseline estacional
+diario será un rival exigente.
+
+**3. La meteorología se refuerza al alejar el horizonte.** La humedad absoluta
+pasa de −0,335 en el instante actual a −0,427 en h+48, y la temperatura de
+−0,186 a −0,237. Son las únicas variables cuya relación con el objetivo
+aumenta con el horizonte. Coherente con que la meteorología no determina el
+NO₂ hora a hora, pero sí la capacidad de dispersión atmosférica a escala de
+días. Refuerza la limitación ya anotada de no disponer de predicción
+meteorológica.
+
+**Multicolinealidad detectada:** `C6H6`×`PT08.S2` = 0,98; `C6H6`×`CO(GT)` =
+0,93; `CO(GT)`×`PT08.S2` = 0,92; `PT08.S1`×`PT08.S5` = 0,90. Los sensores
+miden en buena parte lo mismo, algo esperable dadas sus sensibilidades
+cruzadas. Tiene consecuencia directa en la estación 8: SHAP repartirá la
+importancia de forma arbitraria entre variables casi intercambiables, y habrá
+que declararlo al interpretar.
+
+**Segundo indicio del benceno confirmado:** la correlación de 0,98 con
+`PT08.S2`. Quedan dos de tres indicios verificados; falta el número de valores
+distintos.
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve
