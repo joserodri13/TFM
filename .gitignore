@@ -12,6 +12,7 @@ venv/
 
 # Notebooks
 .ipynb_checkpoints/
+reports/
 
 # Editor y sistema
 .vscode/
@@ -19,5 +20,5 @@ venv/
 .DS_Store
 
 # Ficheros temporales de exploración
-explora.py
+explore.py
 prueba.py
