@@ -118,3 +118,10 @@ MIN_TARGET_COVERAGE = 50.0
 # al error del modelo de referencia por persistencia. Ampliar el umbral a 5
 # recuperaria solo 12 horas mas sobre 9.357.
 MAX_INTERPOLABLE_GAP = 2
+
+# ---------------------------------------------------------------------------
+# Estacion 4: eda
+# ---------------------------------------------------------------------------
+# Se descartan del analisis exploratorio las columnas con demasiados huecos, que no aportan informacion y 
+# distorsionan la correlacion. NMHC(GT) tiene un 90,2 % de huecos y C6H6(GT) un 50,1 %.
+UNUSABLE_COLUMNS = ['NMHC(GT)', 'C6H6(GT)']

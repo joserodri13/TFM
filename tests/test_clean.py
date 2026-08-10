@@ -72,7 +72,7 @@ def test_clean_completo():
 
     assert limpio.index.equals(df.index)
     assert 'NMHC(GT)' not in limpio.columns
-    assert 'C6H6(GT)' in limpio.columns
+    assert 'C6H6(GT)' not in limpio.columns
 
     utiles = limpio['objetivo_observado'] & limpio['entradas_completas']
     assert utiles.sum() == 7396

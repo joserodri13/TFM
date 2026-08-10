@@ -596,6 +596,122 @@ que declararlo al interpretar.
 `PT08.S2`. Quedan dos de tres indicios verificados; falta el número de valores
 distintos.
 
+## 2026-08-10 — Autocorrelación del NO₂
+
+**Medida hasta 192 horas (ocho días).**
+
+| Retardo | 1 h | 6 h | 12 h | 24 h | 48 h | 168 h |
+|---|---|---|---|---|---|---|
+| Autocorrelación | 0,900 | 0,352 | 0,234 | 0,708 | 0,573 | 0,646 |
+
+**Ciclo diario.** La autocorrelación cae hasta un mínimo de 0,234 en el retardo
+de 12 horas —la fase opuesta del ciclo— y repunta a 0,708 en 24 horas. Es el
+mismo fenómeno detectado en la correlación con los sensores, ahora medido
+sobre la propia serie.
+
+**Ciclo semanal aislado.** Siguiendo solo los múltiplos de 24 horas, la
+autocorrelación desciende del día 1 (0,708) al día 4 (0,508) y después remonta
+hasta 0,646 en el retardo de 168 horas, volviendo a caer en 192 (0,573). El
+pico semanal destaca sobre sus vecinos, lo que confirma la estacionalidad
+semanal ya observada en el perfil por día de la semana.
+
+**Consecuencias:**
+
+- *Estación 5 (Features):* se construirán retardos de 1, 24 y 168 horas. Los
+  tres tienen justificación medida y no meramente convencional.
+- *Estación 6 (Split):* los modelos de referencia serán persistencia (retardo
+  1), estacional diario (24) y estacional semanal (168).
+
+**Expectativa realista que conviene dejar anotada:** con una autocorrelación de
+0,708 a 24 horas, el modelo de referencia estacional diario será un rival
+exigente. Batirlo de forma consistente en los 48 horizontes es el reto central
+del proyecto, y cabe la posibilidad de que la mejora resulte modesta. En ese
+caso el resultado honesto es declararlo, no presentarlo como fracaso: cuantifica
+cuánta señal aprovechable hay más allá de la inercia de la propia serie.
+
+**Estructura de los episodios.** Las 386 superaciones se agrupan en 136
+episodios, con una duración media de 2,8 horas y máxima de 18. El 35 % dura
+una sola hora, pero el 42 % (57 episodios) se prolonga tres horas o más.
+
+Los episodios no son picos aislados: hay un fenómeno sostenido que anticipar.
+Es relevante para el caso de negocio, ya que una superación puntual de una
+hora no justifica activar un protocolo de restricción de tráfico, mientras que
+un episodio de ocho a dieciocho horas sí.
+
+**Nota metodológica.** El cálculo se realiza sobre la serie de horas
+observadas (`dropna()`), no sobre la serie completa. Reutilizar `gap_runs`
+sobre la serie con huecos mezclaba los episodios de contaminación con las
+paradas del analizador: las duraciones máximas resultantes (173, 146, 142
+horas) coincidían exactamente con las rachas de datos ausentes ya
+caracterizadas. La comprobación de que las horas de los episodios suman
+exactamente 386 valida el resultado.
+
+Efecto secundario asumido: al eliminar las horas ausentes, dos superaciones
+separadas por un hueco quedan contiguas y se contabilizan como un único
+episodio. Dado el objetivo del análisis —determinar si los episodios son
+puntuales o sostenidos—, el efecto no altera la conclusión.
+
+## 2026-08-10 — Deriva de la relación sensor-concentración
+
+**Pregunta:** ¿se mantiene estable a lo largo del año la relación entre la
+señal de los sensores y la concentración medida por el analizador?
+
+**Método.** Dos indicadores por mes: la correlación entre cada sensor y el
+objetivo, y el cociente entre la concentración media y la señal media. El
+primero mide si el sensor sigue informando; el segundo, si el factor de
+conversión se desplaza.
+
+**Resultado 1: la correlación mensual se mantiene.** Los cinco sensores
+conservan correlaciones altas dentro de cada mes durante todo el periodo. Los
+sensores no pierden capacidad de informar.
+
+**Resultado 2: el factor de conversión se desplaza.** Comparando el mismo mes
+de años consecutivos (marzo de 2004 frente a marzo de 2005), que comparten
+régimen estacional:
+
+| Sensor | Mar 2004 | Mar 2005 | Cambio |
+|---|---|---|---|
+| PT08.S1 | 83,9 | 119,7 | +43 % |
+| PT08.S2 | 109,6 | 154,3 | +41 % |
+| PT08.S3 | 99,7 | 193,3 | +94 % |
+| PT08.S4 | 65,3 | 111,9 | +71 % |
+| PT08.S5 | 99,8 | 126,4 | +27 % |
+
+Para una misma señal del sensor, la concentración real asociada es entre un
+27 % y un 94 % mayor un año después.
+
+**Hipótesis alternativas consideradas:**
+
+- *Efecto estacional.* Descartada: la comparación se hace entre el mismo mes
+  de años consecutivos, con idéntico régimen estacional.
+- *Aumento del tráfico urbano.* Descartada por dos motivos. Primero, un año
+  es un plazo demasiado corto para un cambio del 40 % en el parque
+  automovilístico. Segundo, y decisivo, un aumento de emisiones elevaría a la
+  vez la concentración real y la señal del sensor, dejando el cociente
+  estable; que el cociente se desplace indica que ambas magnitudes se han
+  desacoplado.
+
+**Hipótesis que NO pueden descartarse con este diseño experimental:** deriva
+del propio analizador de referencia (no se dispone de un tercer instrumento
+que arbitre), cambios en el entorno inmediato de medida, o mantenimiento de
+los equipos durante el periodo. La memoria debe declarar esta limitación en
+lugar de atribuir el desplazamiento exclusivamente a los sensores.
+
+**Por qué la causa exacta no altera la conclusión operativa:** sea cual sea el
+origen, el hecho medido es que un modelo calibrado con datos de un año está
+sistemáticamente desviado doce meses después, y lo está sin emitir ningún
+aviso. Esto justifica de forma cuantitativa —y no meramente por buena
+práctica— las estaciones 9 (intervalos que se ensanchan al desplazarse la
+relación) y 11 (monitorización y política de reentrenamiento).
+
+**Hallazgo adicional: paradoja de Simpson en PT08.S4.** El sensor nominalmente
+dedicado al NO₂ presenta una correlación global de solo 0,16 con el objetivo,
+pero correlaciones mensuales altas (0,835 en marzo de 2004, 0,801 en octubre).
+Dentro de cada mes sigue bien al NO₂; entre meses, su nivel base se desplaza
+lo suficiente (+71 % en un año, el mayor de los cinco) como para destruir la
+relación global. Es un ejemplo de manual de agregación engañosa y merece
+figura propia en la memoria.
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve

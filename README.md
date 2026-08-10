@@ -119,8 +119,8 @@ coincide con el de su módulo de código.
 |---|---|---|---|---|
 | 1 | Load | `load.py` | Tabla con sello temporal, ordenada | **Hecha** |
 | 2 | Validate | `validate.py` | Data contract verificado | **Hecha** |
-| 3 | Clean | `clean.py` | Huecos tratados, columnas descartadas | Pendiente |
-| 4 | EDA | `eda.py` | Gráficos y hallazgos documentados | Pendiente |
+| 3 | Clean | `clean.py` | Huecos tratados, columnas descartadas | **Hecha**  |
+| 4 | EDA | `eda.py` | Gráficos y hallazgos documentados | **Hecha**  |
 | 5 | Features | `features.py` | Retardos, medias móviles, calendario | Pendiente |
 | 6 | Split | `split.py`, `metrics.py`, `baselines.py` | Baselines y listón a batir | Pendiente |
 | 7 | Model | `model.py` | Escalera de modelos comparados | Pendiente |
