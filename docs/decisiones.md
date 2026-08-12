@@ -712,6 +712,99 @@ lo suficiente (+71 % en un año, el mayor de los cinco) como para destruir la
 relación global. Es un ejemplo de manual de agregación engañosa y merece
 figura propia en la memoria.
 
+## 2026-08-10 — Estación 5: elección de retardos y codificación cíclica
+
+**Retardos elegidos: 1, 24 y 168 horas.** Son los tres máximos locales de la
+curva de autocorrelación medida el 10 de agosto: 0,900 (inercia inmediata),
+0,708 (misma hora del día anterior) y 0,646 (misma hora del mismo día de la
+semana anterior). No responden a convención sino a los puntos donde la serie
+conserva más información sobre sí misma.
+
+Se descartan retardos intermedios: el de 12 horas tiene autocorrelación de
+0,234 por corresponder a la fase opuesta del ciclo diario, y el de 96 horas
+(0,508) no destaca sobre sus vecinos. El de 168 sí destaca frente a 144
+(0,583) y 192 (0,573), lo que confirma que la estacionalidad semanal es real y
+no un artefacto.
+
+**Codificación cíclica de las variables de calendario.** La hora del día se
+representa mediante el seno y el coseno del ángulo correspondiente
+(2π·hora/24) en lugar de como un entero de 0 a 23. Igual tratamiento para el
+día de la semana (periodo 7) y el mes (periodo 12).
+
+*Motivo:* en la representación entera, las 23:00 y las 00:00 quedan en
+extremos opuestos de la escala pese a ser consecutivas, lo que introduce una
+discontinuidad artificial cada medianoche. La codificación cíclica sitúa cada
+hora como un punto de una circunferencia: la hora 0 da (sen 0, cos 1) y la
+hora 23 da (−0,26, 0,97), es decir, prácticamente el mismo punto.
+
+*Alcance real de la mejora:* los modelos basados en árboles no la necesitan,
+ya que pueden establecer particiones en cualquier punto del rango. Sí importa
+para los modelos lineales de la escalera de modelización, donde una recta
+sobre la hora impondría un efecto monótono, incompatible con el perfil horario
+observado (mínimo a las 04:00, pico a las 10:00, valle a las 14:00 y máximo a
+las 19:00). Se incluye para que la comparación entre modelos de la estación 7
+sea equitativa.
+
+## 2026-08-10 — Estación 5 (Features) completada
+
+**Resultado:** `src/tfm_airquality/features.py` con cuatro funciones y cuatro
+pruebas en `tests/test_features.py`.
+
+- `add_lags`: retardos de 1, 24 y 168 horas.
+- `add_rolling`: medias y desviaciones de ventanas de 3 y 24 horas.
+- `add_calendar`: hora, día de la semana y mes con codificación cíclica, más
+  indicador de fin de semana.
+- `build_features`: ensambla las anteriores y desplaza el objetivo.
+
+**Decisión: un único modelo para los 48 horizontes**, con el horizonte como
+variable de entrada, frente a la alternativa de entrenar 48 modelos
+independientes. Un modelo global generaliza mejor con un volumen de datos
+limitado y resulta mucho más barato de mantener en producción. La tabla
+resultante contiene una fila por cada combinación de instante y horizonte:
+449.136 filas y 287 MB, volumen manejable sin necesidad de procesamiento por
+bloques.
+
+**Ventanas móviles de 3 y 24 horas.** La de 24 captura un ciclo diario
+completo, cuya relevancia está medida (autocorrelación de 0,708 a ese
+retardo). La de 3 horas se apoya en que la autocorrelación a ese plazo sigue
+siendo alta (0,612), mientras que a 6 horas ya desciende a 0,352. Se emplea
+`min_periods` igual a la mitad de la ventana: con el comportamiento estricto
+por defecto, un solo valor ausente anularía la ventana completa, y con 1.642
+horas ausentes en el objetivo eso descartaría una parte considerable del
+conjunto.
+
+**Pérdida de filas por propagación de huecos.** Al construir las variables, las
+filas completas descienden de 7.396 a 5.104, un 31 % menos. La causa es que
+cada hora ausente inutiliza además la fila siguiente en el retardo de 1 hora,
+la de 24 horas después en el de 24, y la de una semana después en el de 168.
+
+**Distribución mensual desigual.** Las filas útiles no se reparten de forma
+homogénea: octubre de 2004 conserva 103 de sus 744 horas (14 %), frente a
+marzo de 2005 con 695 (93 %). Los meses más mermados coinciden con las averías
+prolongadas del analizador ya caracterizadas (173 y 142 horas consecutivas, en
+octubre ambas).
+
+**Decisión aplazada sobre el retardo de 168 horas.** Prescindir de él elevaría
+las filas completas de 5.104 a 6.217 (+22 %) y triplicaría las de octubre (de
+103 a 314). A cambio se perdería la señal semanal, cuya existencia está medida
+(autocorrelación de 0,646, destacando sobre 144 y 192).
+
+No se decide ahora: la columna se construye —siempre puede ignorarse una
+variable existente, pero no usarse una que no se ha creado— y ambas
+configuraciones se compararán empíricamente en la estación 7 con el mismo
+arnés de evaluación, del mismo modo que se procedió con el umbral de
+interpolación.
+
+**Prueba más relevante: `test_sin_fuga_de_informacion`.** Altera todos los
+valores posteriores a un instante dado y verifica que las variables
+construidas en ese instante no cambian. Es el guardián de la regla central de
+la estación: toda columna debe poder calcularse empleando exclusivamente
+información anterior o igual al instante actual. Una variable que mire al
+futuro —una media móvil centrada, un desplazamiento de signo invertido—
+produciría métricas excelentes en evaluación y un fallo completo en
+producción, sin lanzar ningún error.
+
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve
