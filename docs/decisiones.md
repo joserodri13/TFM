@@ -804,6 +804,89 @@ futuro —una media móvil centrada, un desplazamiento de signo invertido—
 produciría métricas excelentes en evaluación y un fallo completo en
 producción, sin lanzar ningún error.
 
+## 2026-08-21 — Embargo entre entrenamiento y evaluación
+
+**Decisión:** se descartan las 48 horas previas a la fecha de corte, que no se
+emplean ni para entrenar ni para evaluar.
+
+**Motivo:** sin embargo, la última fila de entrenamiento (31/12/2004 a las
+23:00) tendría, para el horizonte de 24 horas, su valor objetivo situado el 1
+de enero de 2005, es decir, dentro del periodo de evaluación. El modelo
+aprendería durante el entrenamiento cómo empieza el tramo con el que después
+se le va a puntuar.
+
+No es una fuga de información en sentido estricto —ninguna variable de entrada
+procede del futuro—, pero sí un solapamiento entre ambos conjuntos que conviene
+eliminar.
+
+**Dimensionado:** el embargo debe igualar al horizonte máximo de predicción, 48
+horas en este proyecto. Con un embargo menor, las filas correspondientes a los
+horizontes más largos seguirían solapando.
+
+**Coste:** 48 filas de entrenamiento sobre 7.110, un 0,7 %. El conjunto de
+entrenamiento pasa a terminar el 29/12/2004 a las 23:00.
+
+**Nombre de la técnica:** se conoce como *embargo* o *purga* y es práctica
+habitual en la validación de modelos sobre series temporales, donde los
+conjuntos de entrenamiento y evaluación pueden solaparse a través de la
+variable objetivo aunque las entradas estén correctamente separadas.
+
+## 2026-08-21 — Estación 6 (Split) completada
+
+**Resultado:** cuatro módulos —`split.py`, `metrics.py`, `baselines.py` y
+`evaluate.py`— y cuatro pruebas en `tests/test_split.py`.
+
+**Métricas.** MAE y RMSE se toman de scikit-learn; solo se implementa el
+tratamiento de ausentes (las funciones de la librería no admiten NaN y hay
+1.642 horas sin valor real, que no pueden puntuarse ni rellenarse) y el skill
+score, que no está disponible en la librería.
+
+**Modelos de referencia.** Persistencia, estacional diario y estacional
+semanal, correspondientes a los tres máximos de la curva de autocorrelación.
+Todos emplean exclusivamente información anterior o igual al instante actual.
+En el estacional diario, los horizontes superiores a 24 horas retroceden dos
+días en lugar de uno: con un solo día, el instante de referencia caería en el
+futuro.
+
+**Resultados del listón (periodo de test, enero-abril de 2005):**
+
+| Horizonte | Mejor baseline | MAE (µg/m³) |
+|---|---|---|
+| 1 h | Persistencia | 18,66 |
+| 6 h | Estacional diario | 32,93 |
+| 24 h | Persistencia / diario (idénticos) | 32,93 |
+| 48 h | Estacional semanal | 39,24 |
+
+**MAE medio del listón sobre los 48 horizontes: 35,68 µg/m³.** Es la cifra de
+referencia del proyecto: a partir de la estación 7, todo modelo se juzga por
+si consigue rebajarla. Para dimensionarla, la media del NO₂ en el conjunto es
+de 113 µg/m³, de modo que el método de referencia se equivoca en torno a un
+32 % del valor típico.
+
+**Reparto de victorias:** el estacional semanal es el mejor en 23 horizontes,
+el diario en 21 y la persistencia solo en 4, los más cortos. No existe un
+único baseline que domine, lo que justifica exigir que el modelo supere al
+mejor de los tres en cada horizonte y no a uno cualquiera.
+
+**Hallazgo: el error de la persistencia no crece de forma monótona.** A 6
+horas comete un MAE de 53,57, muy superior al de 24 horas (32,93). Es
+consecuencia del ciclo diario: a 6 horas vista se compara una hora del día con
+otra de fase opuesta, mientras que a 24 horas las fases se alinean. Es el
+mismo fenómeno que la oscilación de la correlación detectada el 30 de julio,
+ahora traducido a error de predicción.
+
+**Comportamiento esperado que conviene documentar:** el estacional diario
+produce un MAE idéntico para h=1, h=6 y h=24, y en h=24 coincide exactamente
+con la persistencia. No es un error: los tres casos acaban comparando el mismo
+par de instantes separados por 24 horas, y para h=24 el desplazamiento es
+cero, es decir, el método es literalmente la persistencia.
+
+**Prueba más relevante: `test_baselines_no_miran_al_futuro`.** Altera todos los
+valores posteriores a un instante y verifica que la predicción en ese instante
+no cambia, para los tres baselines y tres horizontes distintos. Es el
+equivalente al test de fuga de la estación 5.
+
+
 
 ## Plantilla para nuevas entradas
 

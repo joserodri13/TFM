@@ -155,6 +155,22 @@ def plot_simpson(df, sensor='PT08.S4(NO2)', columna=None, figsize=(8, 6)):
     fig.tight_layout()
     return fig
 
+def plot_baselines(resultados, figsize=(11, 5)):
+    """Curva de error de cada baseline según el horizonte de predicción."""
+    fig, ax = plt.subplots(figsize=figsize)
+
+    for nombre, tabla in resultados.items():
+        ax.plot(tabla.index, tabla['MAE'], marker='.', label=nombre)
+
+    ax.set_xlabel('horizonte (horas)')
+    ax.set_ylabel('MAE (µg/m³)')
+    ax.set_xticks(range(0, 49, 6))
+    ax.legend()
+    ax.grid(alpha=0.3)
+
+    fig.tight_layout()
+    return fig
+
 def guardar_figura(fig, nombre):
     """Guarda una figura en reports/figuras/, creando la carpeta si hace falta."""
     destino = config.RAIZ / 'reports' / 'figuras'

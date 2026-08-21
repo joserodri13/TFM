@@ -1,4 +1,5 @@
 from pathlib import Path
+import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Rutas
@@ -125,3 +126,16 @@ MAX_INTERPOLABLE_GAP = 2
 # Se descartan del analisis exploratorio las columnas con demasiados huecos, que no aportan informacion y 
 # distorsionan la correlacion. NMHC(GT) tiene un 90,2 % de huecos y C6H6(GT) un 50,1 %.
 UNUSABLE_COLUMNS = ['NMHC(GT)', 'C6H6(GT)']
+
+# ---------------------------------------------------------------------------
+# Estacion 6: particion y evaluacion
+# ---------------------------------------------------------------------------
+
+# Fecha de corte entre entrenamiento y evaluacion. Entrenamiento con
+# marzo-diciembre de 2004 (unos 9 meses), test con enero-abril de 2005 (unos
+# 3 meses y medio). El test cae en invierno, la estacion con mas episodios de
+# superacion del umbral: 271 de las 386 superaciones estan en ese periodo.
+FECHA_CORTE = pd.Timestamp('2005-01-01')
+
+# Horizontes de prediccion, de 1 a 48 horas.
+HORIZONTES = range(1, 49)
