@@ -886,6 +886,138 @@ valores posteriores a un instante y verifica que la predicción en ese instante
 no cambia, para los tres baselines y tres horizontes distintos. Es el
 equivalente al test de fuga de la estación 5.
 
+## 2026-08-21 — Estación 7: selección de la escalera de modelos
+
+**Criterio general.** Los modelos no se eligen por variedad, sino porque cada
+uno responde a una pregunta concreta y permite descartar una hipótesis. Se
+asciende por la escalera de uno en uno y solo se justifica un nivel superior
+si mejora al anterior: un modelo complejo que no supera a uno simple se
+descarta, con independencia de su sofisticación.
+
+---
+
+**Nivel 1 — Ridge.** *¿Basta con una relación lineal?*
+
+Es la referencia interpretable del proyecto: sus coeficientes se leen
+directamente. Se emplea la variante regularizada y no una regresión lineal
+ordinaria porque el conjunto presenta multicolinealidad severa, medida en la
+estación 4: `PT08.S1` y `PT08.S5` correlacionan 0,90, y las medias móviles
+correlacionan fuertemente con sus propios retardos. Sin regularización, los
+coeficientes serían inestables y no interpretables.
+
+**Nivel 2 — Random Forest.** *¿Existen relaciones no lineales?*
+
+Primer modelo no lineal. Robusto, con pocos hiperparámetros críticos y
+tolerante a la multicolinealidad. Su función es principalmente diagnóstica: si
+mejora sustancialmente a Ridge, la no linealidad es relevante; si no, el
+problema es esencialmente lineal y conviene saberlo antes de invertir en
+modelos más complejos.
+
+**Nivel 3 — LightGBM.** *¿Cuánto puede exprimirse el enfoque tabular?*
+
+Gradient boosting sobre árboles, estándar de facto en problemas tabulares. Dos
+ventajas específicas para este conjunto: admite valores ausentes de forma
+nativa —lo que es determinante cuando solo 5.104 de las 449.136 filas están
+completas— y captura interacciones entre variables, como que el efecto de la
+temperatura sobre el NO₂ difiera según la estación del año.
+
+**Nivel 4 — XGBoost.** *¿Depende el resultado de la implementación concreta?*
+
+No aporta un enfoque metodológico nuevo: es otra implementación de gradient
+boosting. Se incluye como control de robustez. Si LightGBM y XGBoost arrojan
+resultados muy dispares, es señal de sobreajuste o de sensibilidad excesiva a
+los hiperparámetros; si convergen, aumenta la confianza en la cifra obtenida.
+
+**Nivel 5 — SARIMAX.** *¿Aporta algo el enfoque estadístico clásico?*
+
+Cambia de paradigma respecto a los cuatro anteriores. Estos tratan el problema
+como tabular, tras haber convertido la historia en columnas durante la
+estación 5; SARIMAX lo aborda como serie temporal pura, modelando de forma
+explícita la autocorrelación y la estacionalidad.
+
+*Limitación reconocida:* no encaja de manera natural con el diseño de modelo
+global con el horizonte como variable de entrada. Requerirá adaptación o
+evaluación separada, y puede acabar funcionando más como ejercicio comparativo
+que como candidato real al modelo final.
+
+**Nivel 6 — Perceptrón multicapa (MLP).** *¿Aporta algo una red neuronal?*
+
+Alternativa no lineal de familia distinta a los árboles: aproxima funciones
+suaves, mientras que los modelos basados en árboles aproximan por escalones.
+Con el volumen de datos disponible es poco probable que resulte competitivo
+—las redes neuronales requieren conjuntos mayores—, pero se prefiere
+descartarlo con evidencia antes que por intuición.
+
+---
+
+**Modelos descartados y motivo:**
+
+| Modelo | Motivo del descarte |
+|---|---|
+| SVR | Escala mal con cientos de miles de observaciones |
+| KNN | Mismo problema de escalado; además sufre la maldición de la dimensionalidad con 80 variables |
+| Prophet | Concebido para series con estacionalidad marcada y pocos regresores externos; no aprovecharía las variables construidas |
+| LSTM, N-BEATS, TFT | Descartados por restricción de calendario el 29 de julio; requieren mayor volumen de datos y más tiempo de desarrollo del disponible |
+
+---
+
+**Procedimiento de comparación acordado:**
+
+1. Ronda inicial con hiperparámetros por defecto sobre un subconjunto de
+   horizontes, para descartar rápidamente los modelos no competitivos.
+2. Búsqueda de hiperparámetros mediante `GridSearchCV` únicamente sobre el
+   ganador o los dos mejores.
+3. Evaluación final sobre los 48 horizontes.
+
+*Motivo del orden:* una búsqueda exhaustiva sobre seis modelos supondría
+cientos de entrenamientos sobre 449.136 filas. La ronda inicial con valores
+por defecto indica en minutos si algún modelo se aproxima siquiera al listón
+de 35,68 µg/m³; si ninguno lo hiciera, el ajuste de hiperparámetros no
+resolvería el problema.
+
+**Requisito metodológico de la validación cruzada:** debe emplearse
+`TimeSeriesSplit` y no la validación cruzada por defecto de scikit-learn, que
+reparte las observaciones al azar. Sobre una serie temporal, un reparto
+aleatorio permitiría entrenar con datos posteriores a los de validación, lo
+que produciría métricas excelentes y carentes de validez.
+
+## 2026-08-21 — Corrección: afirmaciones sobre el coste de los equipos
+
+**Problema detectado.** La entrada del 24 de julio sobre los dos escenarios de
+despliegue, y el planteamiento del problema en el README, afirmaban que los
+sensores de óxido metálico son "de bajo coste" frente a un "equipo caro", y el
+README llegaba a cuantificarlo ("decenas de miles de euros", "dos órdenes de
+magnitud menos").
+
+**Ninguna de esas afirmaciones está sostenida por el conjunto de datos.** La
+documentación del origen describe la tecnología de los dispositivos —sensores
+de óxido metálico frente a un analizador certificado— pero no menciona precios
+en ningún momento. Se trataba de contexto asumido, no de un dato verificado.
+
+**Corrección aplicada.** El README se reformula para describir la diferencia
+entre ambas tecnologías sin afirmar nada sobre su precio: los métodos de
+referencia (quimioluminiscencia para el NO₂) requieren infraestructura,
+mantenimiento y calibración periódica, mientras que los dispositivos
+multisensor permitirían desplegar un mayor número de puntos de medida. El
+título del trabajo pasa de "con sensores de bajo coste" a "a partir de
+sensores de óxido metálico".
+
+**La pregunta del proyecto no cambia**, porque no dependía del precio: ¿puede
+un nodo equipado únicamente con sensores de óxido metálico aproximar las
+mediciones de un analizador certificado situado en el mismo punto? Eso es
+verificable con los datos disponibles.
+
+**Vía para recuperar el argumento económico:** si se desea mantenerlo en la
+memoria, debe apoyarse en una referencia bibliográfica. El artículo de De Vito
+et al. (2008), de cita obligatoria, contextualiza el uso de sensores químicos
+en despliegues de campo, y existe literatura abundante sobre redes de sensores
+de bajo coste para calidad del aire. Sin cita, la afirmación se omite.
+
+**Lección metodológica:** conviene revisar periódicamente qué afirmaciones del
+proyecto proceden de los datos y cuáles de supuestos incorporados sin
+verificar. Es el mismo criterio aplicado a los indicios sobre `C6H6(GT)`, que
+no se dieron por buenos hasta comprobarlos con código propio.
+
 
 
 ## Plantilla para nuevas entradas
