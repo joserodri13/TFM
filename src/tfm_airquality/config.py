@@ -137,5 +137,8 @@ UNUSABLE_COLUMNS = ['NMHC(GT)', 'C6H6(GT)']
 # superacion del umbral: 271 de las 386 superaciones estan en ese periodo.
 FECHA_CORTE = pd.Timestamp('2005-01-01')
 
-# Horizontes de prediccion, de 1 a 48 horas.
-HORIZONTES = range(1, 49)
+# Horizontes de prediccion. Se limitan a los que corresponden a decisiones
+# operativas reales: una hora (reaccion inmediata), 6 y 12 (mismo dia), 24
+# (mañana) y 48 (pasado mañana). Predecir a horizontes intermedios como 34
+# horas no corresponde a ninguna decision que se tome en la practica.
+HORIZONTES = [1, 6, 12, 24, 48]

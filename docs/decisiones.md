@@ -750,7 +750,7 @@ sea equitativa.
 **Resultado:** `src/tfm_airquality/features.py` con cuatro funciones y cuatro
 pruebas en `tests/test_features.py`.
 
-- `add_lags`: retardos de 1, 24 y 168 horas.
+- `add_lags`: retardos de 1 y 24 horas.
 - `add_rolling`: medias y desviaciones de ventanas de 3 y 24 horas.
 - `add_calendar`: hora, día de la semana y mes con codificación cíclica, más
   indicador de fin de semana.
@@ -1018,7 +1018,182 @@ proyecto proceden de los datos y cuáles de supuestos incorporados sin
 verificar. Es el mismo criterio aplicado a los indicios sobre `C6H6(GT)`, que
 no se dieron por buenos hasta comprobarlos con código propio.
 
+## 2026-08-21 — Descarte de SARIMAX
 
+**Decisión:** SARIMAX se retira de la escalera de modelos. Se documenta como
+alternativa considerada, sin implementación.
+
+**Motivo principal, de diseño.** En la estación 5 el problema se transformó
+deliberadamente de serie temporal a tabular, incorporando la historia como
+columnas (retardos, ventanas móviles y calendario). Esa transformación es la
+que permite emplear cualquier modelo tabular y mantener un único modelo para
+los 48 horizontes.
+
+SARIMAX exige deshacer esa transformación: modela la secuencia directamente y
+no aprovecha las variables construidas. Evaluarlo obligaría a montar un
+procedimiento distinto al del resto, lo que impediría una comparación en
+igualdad de condiciones.
+
+**Limitación adicional.** SARIMAX admite un único periodo estacional, mientras
+que la serie presenta dos con relevancia medida: diario (autocorrelación 0,708
+a 24 horas) y semanal (0,646 a 168). Habría que renunciar a uno de los dos.
+
+**Coste de una evaluación rigurosa.** El procedimiento correcto sería de origen
+móvil: ajustar el modelo con todo lo anterior a cada instante del test y
+proyectar 48 horas. Sobre las 2.247 horas del periodo de evaluación, y con el
+coste de ajustar un modelo estacional de periodo 24 sobre miles de
+observaciones, no resulta asumible dentro del calendario del trabajo. Una
+evaluación sobre una muestra de orígenes sería viable, pero produciría
+resultados menos comparables con los de los demás modelos.
+
+**Alternativas ya cubiertas.** La escalera conserva cinco modelos que sí
+comparten procedimiento de evaluación y cubren tres familias distintas:
+lineal regularizado (Ridge), ensambles de árboles por bagging (Random Forest)
+y por boosting (LightGBM y XGBoost), y redes neuronales (MLP).
+
+**Valor de dejarlo documentado:** descartar una alternativa con criterio
+explícito es en sí una decisión de ingeniería. En la memoria se menciona como
+opción evaluada y no seleccionada, indicando el motivo.
+
+## 2026-08-22 — El escenario B pasa a ser análisis complementario
+
+**Decisión:** el escenario A (con acceso al histórico del analizador de
+referencia) es el trabajo principal. El escenario B queda documentado como
+análisis complementario en la memoria, sin desarrollarse en las estaciones
+posteriores.
+
+**Motivo:** el objetivo del proyecto, fijado el 24 de julio, es la predicción
+de NO₂ a 24-48 horas. Ese objetivo tiene sentido tanto en un emplazamiento con
+analizador como sin él: el analizador mide el presente, no el futuro. El
+escenario A es el caso principal y el que ofrece mejores resultados.
+
+**Resultados obtenidos del escenario B** (LightGBM ajustado, mismos
+hiperparámetros que el escenario A):
+
+| Horizonte | Escenario A | Escenario B | Pérdida |
+|---|---|---|---|
+| 1 h | 18,12 | 30,86 | +70 % |
+| 6 h | 29,96 | 33,87 | +13 % |
+| 12 h | 30,30 | 33,38 | +10 % |
+| 24 h | 31,21 | 35,70 | +14 % |
+| 48 h | 32,36 | 36,27 | +12 % |
+| Media | 28,39 | 34,02 | +20 % |
+
+**Interpretación:** prescindir del histórico del analizador cuesta entre un
+10 % y un 14 % de precisión en los horizontes operativamente relevantes. La
+pérdida se dispara en el horizonte de una hora (+70 %), donde disponer de la
+medición actual equivale casi a conocer la respuesta —la autocorrelación a una
+hora es de 0,900—, pero ese horizonte carece de utilidad para anticipar
+episodios.
+
+**Resultado destacable:** a 48 horas el escenario B obtiene un MAE de 36,27
+frente a los 39,24 del mejor modelo de referencia, pese a que estos sí emplean
+el histórico certificado del que el escenario B no dispone.
+
+**Limitación del análisis:** el escenario B se evaluó con los hiperparámetros
+optimizados para el escenario A. Un ajuste específico podría mejorar
+ligeramente sus cifras. No se realiza por restricción de calendario, y se
+declara en la memoria.
+
+## 2026-08-22 — Se elimina el retardo de 168 horas
+
+**Decisión:** el retardo de 168 horas se retira del conjunto de variables. Se
+resuelve así la decisión aplazada el 10 de agosto.
+
+**Resultado de la comparación empírica** (LightGBM ajustado, escenario A,
+mismos hiperparámetros en ambos casos):
+
+| Horizonte | Con lag168 | Sin lag168 | Diferencia |
+|---|---|---|---|
+| 1 h | 18,12 | 17,74 | −0,38 |
+| 6 h | 29,96 | 29,71 | −0,25 |
+| 12 h | 30,30 | 30,30 | 0,00 |
+| 24 h | 31,21 | 30,09 | −1,12 |
+| 48 h | 32,36 | 31,28 | −1,08 |
+| Media | 28,39 | 27,83 | **−0,56** |
+
+Mejora en cuatro de los cinco horizontes y empate en el quinto. La mejora es
+mayor precisamente en los horizontes largos, que son los relevantes para el
+caso de uso.
+
+**Por qué una variable con señal medida empeora el modelo.** La autocorrelación
+a 168 horas es de 0,646, la tercera más alta de la serie y destacando sobre sus
+vecinas (0,583 en 144 y 0,573 en 192). La señal semanal existe. Pero construir
+la variable cuesta 1.113 filas de entrenamiento —de 6.217 a 5.104, un 18 %—,
+porque cada hora ausente inutiliza además la fila situada una semana después.
+El balance entre información aportada y observaciones perdidas resulta
+negativo.
+
+**Aclaración:** se elimina el retardo de 168 horas como variable predictora, no
+el modelo de referencia estacional semanal, que se mantiene en `baselines.py`
+y es el mejor baseline en 23 de los 48 horizontes. El baseline no construye
+tabla de variables y por tanto no incurre en la pérdida de observaciones que
+motiva esta decisión.
+
+## 2026-08-22 — Descartada la especialización por tramos de horizonte
+
+**Hipótesis:** dado que los horizontes cortos y largos mostraban
+comportamientos distintos ante cambios de capacidad del modelo, dos modelos
+especializados podrían superar a uno global.
+
+**Resultado:** MAE medio de 27,88 con dos modelos (corte en h=12) frente a
+27,83 con el modelo global. Diferencia de 0,05 µg/m³, dentro del ruido de una
+única partición de test. Sin patrón claro por horizonte: mejora en h=6 y h=48,
+empeora en h=1 y h=12.
+
+**Interpretación.** Al incluir el horizonte como variable de entrada, el modelo
+global ya puede especializarse internamente: un árbol puede establecer una
+partición en `horizonte <= 12` y aplicar reglas distintas a cada lado. La
+división manual reproduce a mano lo que el modelo hace por sí solo, y añade el
+inconveniente de que cada submodelo entrena con la mitad de observaciones.
+
+**Consecuencia:** se mantiene el modelo global único. La decisión adoptada en
+la estación 5 —un solo modelo con el horizonte como variable, frente a 48
+modelos independientes— queda validada empíricamente y no solo por argumentos
+de coste de mantenimiento en producción.
+
+## 2026-08-22 — Estación 7 (Model): alcance final y modelo seleccionado
+
+**Decisión sobre el alcance de horizontes.** El pipeline se limita a cinco
+horizontes operativos: 1, 6, 12, 24 y 48 horas. Se fijan en
+`config.HORIZONTES` y son el valor por defecto de `build_features`.
+
+*Motivo:* corresponden a decisiones reales —reacción inmediata, mismo día,
+mañana y pasado mañana—. Un horizonte intermedio como 34 horas no se
+corresponde con ninguna decisión que se tome en la práctica. Además, con cinco
+horizontes cada uno representa el 20 % del conjunto y el modelo global único
+funciona correctamente, sin necesidad de especialización por tramos, lo que
+simplifica sustancialmente las estaciones 10 (Serve) y 11 (Monitor): un solo
+modelo que desplegar, versionar y monitorizar en lugar de cuatro.
+
+*Coste asumido:* el sistema no predice horizontes distintos de los cinco
+fijados. Se declara como limitación.
+
+**Modelo seleccionado:** LightGBM con `n_estimators=500`, `num_leaves=63` y
+`learning_rate=0.05`, escenario A, sin el retardo de 168 horas.
+
+**Resultados sobre los cinco horizontes operativos:**
+
+| Horizonte | Listón | Modelo | Mejora |
+|---|---|---|---|
+| 1 h | 18,66 | 17,74 | 4,9 % |
+| 6 h | 32,93 | 29,71 | 9,8 % |
+| 12 h | 32,93 | 30,30 | 8,0 % |
+| 24 h | 32,93 | 30,09 | 8,6 % |
+| 48 h | 39,24 | 31,28 | 20,3 % |
+| **Media** | **31,34** | **27,83** | **11,2 %** |
+
+**Análisis complementario para la memoria.** Se conserva la evaluación sobre
+los 48 horizontes con especialización por tramos, que no forma parte del
+sistema desplegado pero aporta la curva de degradación del error frente al
+horizonte de predicción. Sobre ese conjunto, el modelo supera al mejor
+baseline en 36 de los 48 horizontes, con un skill medio del 7,7 %. Las mayores
+ganancias se concentran entre 2 y 5 horas (hasta el 29 %) y existe una banda
+entre 15 y 22 horas donde el estacional diario resulta ligeramente superior,
+siempre por debajo del 5 %.
+
+Los resultados se guardan en `reports/degradacion_48h.csv` y la figura
+correspondiente en `reports/figuras/degradacion_por_horizonte.png`.
 
 ## Plantilla para nuevas entradas
 

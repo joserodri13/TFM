@@ -3,7 +3,7 @@ import pandas as pd
 
 from tfm_airquality import config
 
-def add_lags(df, columnas, lags=(1, 24, 168)):
+def add_lags(df, columnas, lags=(1, 24)):
     """
     Añade columnas con retardos de las series horarias.
 
@@ -74,7 +74,7 @@ def add_calendar(df):
 
     return df
 
-def build_features(df, horizontes=range(1, 49), lag_cols=None, roll_cols=None):
+def build_features(df, horizontes=config.HORIZONTES, lag_cols=None, roll_cols=None):
     """
     Construye la tabla lista para modelar.
 
