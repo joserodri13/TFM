@@ -14,6 +14,7 @@ dependencies = [
     "lightgbm>=4.3",
     "xgboost>=2.0",
     "statsmodels>=0.14",
+    "shap>=0.45",
 ]
 
 [project.optional-dependencies]

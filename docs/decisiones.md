@@ -1195,6 +1195,136 @@ siempre por debajo del 5 %.
 Los resultados se guardan en `reports/degradacion_48h.csv` y la figura
 correspondiente en `reports/figuras/degradacion_por_horizonte.png`.
 
+## 2026-08-22 — Interpretabilidad: la hipótesis sobre PT08.S4 queda refutada
+
+**Hipótesis de partida.** En la estación 4 se observó que `PT08.S4`, el sensor
+nominalmente dedicado al NO₂, presenta una correlación global de solo 0,16 con
+el objetivo, frente al 0,71 de `PT08.S5` (ozono). Se anotó como el hallazgo que
+sostendría la sección de interpretabilidad: se esperaba que el modelo ignorase
+el sensor de NO₂ y se apoyase en el de ozono, confirmando la sensibilidad
+cruzada documentada por los autores del conjunto.
+
+**Resultado de SHAP: ocurre lo contrario.** `PT08.S4` es, con diferencia, el
+sensor más utilizado por el modelo.
+
+| Sensor | Mejor puesto en el ranking | Importancia acumulada |
+|---|---|---|
+| PT08.S4 (NO₂) | 7 | 8,92 |
+| PT08.S5 (O₃) | 10 | 3,42 |
+| PT08.S2 (NMHC) | 26 | 2,38 |
+| PT08.S3 (NOx) | 29 | 1,90 |
+| PT08.S1 (CO) | 31 | 1,65 |
+
+Cuatro variantes de `PT08.S4` figuran entre las dieciséis variables más
+influyentes, y su importancia acumulada supera a la de los otros cuatro
+sensores sumados.
+
+**Explicación.** La contradicción es solo aparente y remite a la paradoja de
+Simpson ya detectada el 10 de agosto: `PT08.S4` mantiene correlaciones
+mensuales de hasta 0,835 con el objetivo, pero su nivel base se desplaza entre
+meses lo suficiente como para destruir la correlación global.
+
+El modelo dispone de variables cíclicas de mes (`mes_sin`, `mes_cos`) que le
+permiten condicionar por época del año, de modo que compensa ese
+desplazamiento y aprovecha una señal que la correlación global no revela.
+
+**Consecuencia metodológica.** La correlación mide relación lineal global; el
+modelo captura relaciones condicionadas. Descartar variables por correlación
+baja habría eliminado la variable de sensor más útil del conjunto. Valida la
+decisión adoptada en la estación 5 de no realizar selección de variables a
+priori y dejar que la estación 8 determine qué emplea el modelo.
+
+**Hallazgos adicionales del análisis SHAP:**
+
+*El calendario domina.* Tres de las seis variables más influyentes son de
+calendario: `hora_cos` (puesto 3), `hora_sin` (5) y `dia_sin` (6). Son
+precisamente las que se conocen de antemano para cualquier horizonte, sin
+necesidad de predecirlas. Coherente con el perfil horario medido, que varía
+entre 58,6 y 150,1 µg/m³ a lo largo del día.
+
+*La meteorología pesa más que la mayoría de sensores.* `T_roll24_mean` ocupa el
+puesto 4 y `AH_roll24_mean` el 9, por delante de cuatro de los cinco sensores.
+Coherente con el hallazgo del 30 de julio: la humedad absoluta era la única
+variable cuya correlación con el objetivo aumentaba al alejar el horizonte,
+por su relación con la capacidad de dispersión atmosférica.
+
+*Las medias de 24 horas superan a los valores instantáneos.* En cuatro de los
+cinco sensores, la variante `_roll24_mean` figura por delante del valor
+puntual. El modelo prefiere el nivel sostenido al dato instantáneo, lo que es
+esperable en un problema de predicción a horizontes de horas o días.
+
+**Valor para la memoria.** Se trata de una hipótesis formulada a partir de
+evidencia, contrastada con un método distinto y refutada, con explicación del
+motivo de la discrepancia. La sección de interpretabilidad no se limita a
+mostrar un ranking de importancias: documenta una corrección del propio
+análisis.
+
+## 2026-08-22 — Estación 8 (Explain) completada
+
+**Resultado:** `src/tfm_airquality/explain.py` con cuatro funciones y dos
+figuras: `shap_summary.png` y `shap_importancia.png`.
+
+**Método.** Valores SHAP calculados con `TreeExplainer`, que los obtiene de
+forma exacta aprovechando la estructura interna de los modelos de árboles, en
+lugar de aproximarlos por muestreo como haría el calculador genérico. Se
+emplea una muestra de 2.000 predicciones del conjunto de test: con el conjunto
+completo el cálculo es sustancialmente más lento y el resultado apenas varía.
+
+**Contraste con el conocimiento del dominio.** El gráfico de resumen muestra no
+solo qué variables importan, sino en qué dirección actúan. El modelo reproduce
+relaciones físicas conocidas sin que se le hayan impuesto:
+
+- Temperatura y humedad absoluta elevadas reducen la concentración predicha,
+  coherente con su efecto sobre la mezcla vertical de la atmósfera y con las
+  correlaciones negativas medidas en la estación 4 (−0,19 y −0,34).
+- El modelo tiende hacia valores centrales conforme aumenta el horizonte, es
+  decir, se vuelve conservador cuando la incertidumbre es mayor.
+- Las variables cíclicas de hora presentan efectos dispersos a ambos lados, lo
+  que indica un comportamiento fuertemente no lineal: el efecto de una hora
+  concreta depende del día de la semana y de la época del año.
+
+**Explicación local: caso de superación anticipada.** El 17 de enero de 2005 a
+las 12:00, el modelo predice 195,1 µg/m³ para las 12:00 del día siguiente. El
+valor real fue de 211,0 µg/m³, superación del límite horario.
+
+Desglose de los 91,8 µg/m³ que separan la predicción del valor base (103,3):
+
+| Variable | Valor | Aportación |
+|---|---|---|
+| `NO2(GT)` | 178,0 | +38,3 |
+| `horizonte` | 24 | +9,1 |
+| `dia_sin` y `dia_cos` | lunes | +8,2 |
+| `T_roll24_mean` | 6,8 °C | +5,6 |
+| `AH_roll24_mean` | 0,43 | +4,9 |
+| `hora_cos` | mediodía | +3,3 |
+| `NO2(GT)_lag24` | 89,0 | −3,1 |
+
+Traducción para un destinatario no técnico: se anticipa una superación porque
+la concentración actual ya es muy elevada, las condiciones meteorológicas son
+desfavorables para la dispersión —temperatura baja y aire seco— y se trata de
+un día laborable. El valor registrado a la misma hora del día anterior, más
+bajo, atenúa ligeramente la predicción.
+
+**Observación sobre el efecto del horizonte.** En este caso la variable
+`horizonte` aporta +9,1, mientras que en otro caso analizado con horizonte 12
+aportaba −20,0. No es contradictorio: refleja la no linealidad ya observada.
+En una situación de concentración elevada, el modelo aprende que a 24 horas el
+ciclo diario vuelve a alinearse y la concentración tiende a repetirse.
+
+**Aplicación práctica:** este desglose es lo que permitiría justificar la
+activación de un protocolo de restricción de tráfico ante un responsable
+municipal, en lugar de presentar una cifra sin explicación. Conecta
+directamente con la estación 9, donde la predicción se convierte en una
+probabilidad de superación con su intervalo de confianza.
+
+**Detalle de implementación.** La tabla de variables mantiene el índice
+temporal repetido, una fila por horizonte, consecuencia del diseño de modelo
+global adoptado en la estación 5. Al seleccionar una observación concreta para
+explicarla hay que hacerlo por posición y no por etiqueta: `.loc[instante]`
+devuelve las cinco filas de ese instante y la explicación correspondería a un
+horizonte distinto del buscado. Se detectó al observar que un caso filtrado
+por horizonte 24 mostraba `horizonte = 12` en su desglose.
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve
