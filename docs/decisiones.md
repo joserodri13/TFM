@@ -1325,6 +1325,120 @@ devuelve las cinco filas de ese instante y la explicación correspondería a un
 horizonte distinto del buscado. Se detectó al observar que un caso filtrado
 por horizonte 24 mostraba `horizonte = 12` en su desglose.
 
+## 2026-08-22 — Estación 9 (Uncertainty) completada
+
+**Objetivo:** convertir la predicción puntual en una decisión operativa. Una
+cifra aislada no es accionable: con un error medio de 30 µg/m³, una predicción
+de 195 es perfectamente compatible con una superación del límite de 200.
+
+**Método: conformal prediction.** Los intervalos se construyen a partir de los
+errores observados en un conjunto de calibración, sin asumir ninguna
+distribución del error. Se aplica la corrección de muestra finita en el cuantil
+para que la garantía de cobertura sea exacta y no asintótica.
+
+**Partición en tres conjuntos.** El entrenamiento se divide a su vez en ajuste
+(marzo-octubre, 15.303 filas) y calibración (noviembre-diciembre, 5.128 filas),
+manteniendo el orden temporal. La calibración debe hacerse sobre datos que el
+modelo no haya visto: sus errores sobre el conjunto de ajuste son
+artificialmente bajos y producirían intervalos demasiado estrechos.
+
+**Resultado principal: la cobertura real queda por debajo de la nominal.**
+
+| Cobertura nominal | Semianchura | Cobertura real en test |
+|---|---|---|
+| 80 % | ±42,1 | 66,9 % |
+| 90 % | ±60,9 | 81,4 % |
+| 95 % | ±79,7 | 91,0 % |
+
+**Causa, anticipada antes de medirla.** La garantía de la conformal prediction
+supone que los datos futuros son intercambiables con los de calibración. Aquí
+no lo son: la calibración cae en noviembre y diciembre, con 90 superaciones del
+umbral, mientras que el test abarca enero-abril, con 271. Se calibra en un
+régimen más benigno que el evaluado.
+
+**Segunda medición de la deriva, por una vía independiente.** El MAE del modelo
+pasa de 26,58 en calibración a 35,70 en test, un incremento del 34 % entre dos
+periodos consecutivos. Además, entrenar sin noviembre y diciembre degrada el
+modelo de 27,83 a 35,70 sobre el mismo conjunto de test: los dos meses
+inmediatamente anteriores al periodo evaluado son los más valiosos.
+
+Es la misma deriva detectada en la estación 4 mediante el cociente
+sensor-concentración, ahora medida a través del rendimiento del modelo. Dos
+métodos independientes apuntando al mismo fenómeno.
+
+**Justificación cuantitativa de la estación 11.** La cobertura de los
+intervalos cae del 90 % nominal al 81 % real en cuatro meses. Sin
+monitorización, el sistema prometería una fiabilidad que no tiene y lo haría
+sin emitir ningún aviso. La solución propuesta es la recalibración periódica
+con ventana móvil, que se implementará en la estación 11.
+
+**Capa de decisión: probabilidad de superación.** Para cada predicción se
+estima la probabilidad de superar los 200 µg/m³ contando qué proporción de los
+errores observados en calibración la situarían por encima del umbral. Se
+emplean los errores con signo, no en valor absoluto, porque la dirección del
+error determina si empuja por encima o por debajo del límite.
+
+*Validación de que el sistema discrimina:* la probabilidad media asignada es de
+0,119 en los casos que efectivamente superan el umbral frente a 0,047 en los
+que no, es decir, dos veces y media superior.
+
+**Recall por episodio frente a recall por hora.** Un episodio es una racha de
+horas consecutivas de superación. Operativamente, avisar en cualquiera de sus
+horas basta para activar el protocolo, de modo que el recall calculado por
+horas infravalora el sistema. En el periodo de test hay 219 horas de superación
+agrupadas en 76 episodios.
+
+| Umbral | Alertas | Precisión | Recall por hora | Recall por episodio |
+|---|---|---|---|---|
+| 0,05 | 762 | 23,6 % | 80,3 % | 86,8 % |
+| 0,08 | 428 | 33,4 % | 57,5 % | 71,1 % |
+| **0,10** | **279** | **39,4 %** | **47,4 %** | **67,1 %** |
+| 0,15 | 105 | 36,2 % | 26,4 % | 30,3 % |
+| 0,20 | 50 | 36,0 % | 16,7 % | 13,2 % |
+
+**Umbral seleccionado: 0,10.** Detecta 51 de los 76 episodios (67 %) con una
+precisión del 39,4 %, generando unas 279 alertas en tres meses y medio.
+
+*Observación:* la precisión no crece de forma monótona con el umbral (39,4 % en
+0,10 frente a 30,0 % en 0,30). Con umbrales altos el número de alertas es tan
+reducido —diez en el caso de 0,30— que las métricas dejan de ser fiables.
+
+**Análisis de sensibilidad al coste de los errores.** En lugar de fijar valores
+económicos concretos para la falsa alarma y el falso negativo —cifras que el
+conjunto de datos no contiene y que serían inventadas—, se estudia cómo varía
+el umbral óptimo según la razón entre ambos costes.
+
+| Coste relativo (falso negativo / falsa alarma) | Umbral óptimo | Episodios detectados |
+|---|---|---|
+| 1-2 | 0,50 | 0 |
+| 5-20 | **0,10** | 51 de 76 |
+| 50 | 0,05 | 66 de 76 |
+
+**Conclusión:** el umbral de 0,10 es óptimo para cualquier valoración que sitúe
+el coste de un episodio no advertido entre 5 y 20 veces el de una falsa alarma.
+La recomendación es por tanto robusta: no depende de acertar el valor exacto de
+esa razón, solo de que se encuentre en un rango amplio y razonable.
+
+Con razones de 1 o 2 la solución óptima sería no alertar nunca, lo que resulta
+coherente: si un episodio perdido cuesta lo mismo que una falsa alarma, generar
+279 alertas para detectar 51 episodios no compensa. El sistema solo aporta
+valor si se considera que un episodio no advertido es sustancialmente más
+costoso.
+
+*Matiz metodológico:* el análisis contabiliza las falsas alarmas por hora y los
+episodios no detectados por episodio. Es la unidad correcta para cada
+concepto —cada alerta indebida supone una molestia puntual, cada episodio
+perdido un fallo del sistema—, pero implica que la razón de costes compara
+magnitudes de granularidad distinta y no debe interpretarse como una
+equivalencia económica directa.
+
+**Limitación pendiente:** el coste relativo real debería fijarlo la
+administración responsable a partir de criterios sanitarios, económicos y
+normativos que exceden el alcance de este trabajo. El análisis de sensibilidad
+proporciona la herramienta de decisión, no la decisión.
+
+
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve
