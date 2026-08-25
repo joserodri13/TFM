@@ -134,10 +134,10 @@ coincide con el de su módulo de código.
 | 4 | EDA | `eda.py` | Gráficos y hallazgos documentados | **Hecha** |
 | 5 | Features | `features.py` | Retardos, medias móviles, calendario | **Hecha** |
 | 6 | Split | `split.py`, `metrics.py`, `baselines.py`, `evaluate.py` | Baselines y listón a batir | **Hecha** |
-| 7 | Model | `model.py` | Escalera de modelos comparados | En curso |
-| 8 | Explain | `explain.py` | SHAP y contraste con la química de sensores | Pendiente |
-| 9 | Uncertainty | `uncertainty.py` | Intervalos y probabilidad de superar umbral | Pendiente |
-| 10 | Serve | `serve.py` | API que recibe datos y devuelve predicción | Pendiente |
+| 7 | Model | `model.py` | Escalera de modelos comparados | **Hecha** |
+| 8 | Explain | `explain.py` | SHAP y contraste con la química de sensores | **Hecha**  |
+| 9 | Uncertainty | `uncertainty.py` | Intervalos y probabilidad de superar umbral | **Hecha**  |
+| 10 | Serve | `serve.py` | API que recibe datos y devuelve predicción | **Hecha**  |
 | 11 | Monitor | `monitor.py` | Vigilancia de degradación y reentrenamiento | Pendiente |
 | 12 | Memoria | — | Informe de 20 caras orientado a negocio | Pendiente |
 | 13 | Entrega | — | MP4 de 5 minutos y checklist de la guía | Pendiente |
@@ -251,7 +251,16 @@ Machine Learning Repository y colócalo en `data/raw/`.
 - Cada estación del pipeline tiene sus propias pruebas automáticas, ejecutables
   con `pytest` desde la raíz del proyecto
 
----
+## Ejecutar el sistema
+
+API REST:
+
+    uvicorn tfm_airquality.api:app
+    # documentación en http://127.0.0.1:8000/docs
+
+Panel de visualización:
+
+    streamlit run app.py
 
 ## Convenciones
 

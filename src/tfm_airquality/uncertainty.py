@@ -60,3 +60,37 @@ def exceedance_probability(y_pred, errores_calibracion, umbral=200.0):
     return np.array([
         float(np.mean(p + errores > umbral)) for p in y_pred
     ])
+
+def conformal_width_by_horizon(errores, horizontes, cobertura=config.COBERTURA):
+    """
+    Semianchura del intervalo, calculada por separado para cada horizonte.
+
+    Un intervalo único para todos los horizontes ignora que la incertidumbre
+    crece al alejar la predicción: el MAE pasa de 17,7 a 1 hora hasta 31,3 a
+    48 horas.
+    """
+    df = pd.DataFrame({'error': np.abs(errores), 'horizonte': horizontes})
+
+    anchuras = {}
+    for h, grupo in df.groupby('horizonte'):
+        n = len(grupo)
+        q = min(1.0, np.ceil((n + 1) * cobertura) / n)
+        anchuras[int(h)] = float(np.quantile(grupo['error'], q))
+
+    return anchuras
+
+def exceedance_probability_by_horizon(y_pred, horizontes_pred,
+                                      errores, horizontes_cal,
+                                      umbral=config.UMBRAL_LEGAL):
+    """Probabilidad de superación, usando los errores del horizonte correspondiente."""
+    errores = np.asarray(errores)
+    horizontes_cal = np.asarray(horizontes_cal)
+
+    probs = []
+    for p, h in zip(np.asarray(y_pred), np.asarray(horizontes_pred)):
+        err_h = errores[horizontes_cal == h]
+        if len(err_h) == 0:
+            err_h = errores
+        probs.append(float(np.mean(p + err_h > umbral)))
+
+    return np.array(probs)

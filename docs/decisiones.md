@@ -1437,6 +1437,105 @@ administración responsable a partir de criterios sanitarios, económicos y
 normativos que exceden el alcance de este trabajo. El análisis de sensibilidad
 proporciona la herramienta de decisión, no la decisión.
 
+## 2026-08-25 — Estación 10 (Serve) completada
+
+**Resultado:** el modelo se persiste con sus metadatos, se expone mediante una
+API REST y se ofrece un panel de visualización interactivo.
+
+**Persistencia con metadatos.** `serve.py` guarda el modelo entrenado junto con
+las columnas que espera y su orden, los errores de calibración con el horizonte
+al que corresponde cada uno, y los umbrales del sistema. Un modelo sin sus
+metadatos es inservible: si las columnas llegan en otro orden, predice sin
+lanzar ningún error y el resultado es incorrecto. La función de predicción
+reordena las columnas recibidas y rechaza las entradas incompletas.
+
+Tamaño total: 2,8 MB. Se versiona en el repositorio, a diferencia de los datos
+y las figuras, para que el servicio pueda levantarse sin ejecutar previamente
+el entrenamiento.
+
+**API REST con FastAPI.** Dos puntos de acceso: `/health`, que comprueba que el
+modelo carga y devuelve sus metadatos, y `/predict`, que recibe una observación
+y devuelve predicción, intervalo, probabilidad de superación y decisión de
+alerta. La validación de entrada devuelve un código 422 indicando qué columnas
+faltan. La documentación interactiva se genera automáticamente.
+
+**Panel de visualización con Streamlit.** La API resulta adecuada para consumo
+programático pero no permite ver nada: se añade un panel que muestra la
+predicción en su contexto temporal, con el intervalo, el límite legal y el
+valor real, además de una tabla con los cinco horizontes simultáneos.
+
+**Mejora incorporada: intervalos adaptativos por horizonte.** La primera versión
+empleaba una semianchura única de ±60,9 µg/m³ para todos los horizontes, lo que
+producía intervalos con extremo inferior negativo —una concentración no puede
+serlo— y resultaba excesivamente pesimista a corto plazo.
+
+Se calibra ahora por horizonte:
+
+| Horizonte | Semianchura | Cobertura real |
+|---|---|---|
+| 1 h | ±40,2 | 84,2 % |
+| 6 h | ±68,4 | 82,3 % |
+| 12 h | ±68,3 | 81,0 % |
+| 24 h | ±62,0 | 81,9 % |
+| 48 h | ±62,3 | 79,9 % |
+
+El horizonte de una hora reduce su intervalo un 34 % **y mejora su cobertura**,
+lo que confirma que la anchura única era inadecuada. Los extremos se recortan
+en cero.
+
+**Tercera aparición del efecto del ciclo diario.** Los intervalos a 6 y 12 horas
+resultan más anchos que a 48, lo que contradice la intuición de que la
+incertidumbre crece con la distancia. Es coherente con lo observado en la
+correlación por horizonte (estación 4) y en el error de los modelos de
+referencia (estación 6): predecir a media jornada es más difícil que a un día
+completo, porque a 24 horas el ciclo diario vuelve a alinearse.
+
+**Rendimiento de las alertas por horizonte:**
+
+| Horizonte | Alertas | Precisión | Recall por hora |
+|---|---|---|---|
+| 1 h | 254 | 51,2 % | 59,4 % |
+| 6 h | 212 | 34,4 % | 42,0 % |
+| 12 h | 224 | 34,4 % | 37,9 % |
+| 24 h | 283 | 39,2 % | 50,7 % |
+| 48 h | 233 | 34,3 % | 36,7 % |
+
+El horizonte de 24 horas supera al de 6 y 12 en ambas métricas, de nuevo por el
+efecto del ciclo diario. Tiene implicación operativa: si hubiera que elegir un
+único horizonte para un protocolo de actuación, 24 horas resulta preferible a
+12, además de ofrecer mayor margen de reacción.
+
+**Limitación de la evaluación cerca del umbral.** Se observó un caso con alerta
+emitida al 21 % de probabilidad y valor real de 199 µg/m³, contabilizado como
+fallo por no alcanzar los 200. Físicamente, 199 y 201 µg/m³ son la misma
+situación; la distinción entre acierto y error es arbitraria en el entorno del
+umbral. Conviene declararlo al interpretar las métricas de precisión y recall.
+
+**Dockerfile.** Se proporciona para el despliegue en contenedor, sin haber sido
+ejecutado: instalar el entorno de contenedores no resultaba prioritario frente
+al resto de tareas pendientes. La memoria debe indicar que el sistema *está
+preparado* para contenerizar, no que se haya desplegado de ese modo.
+
+**Diseño del gráfico del panel.** Se probó representar la trayectoria completa
+de predicción, uniendo los cinco horizontes con una línea y una banda de
+incertidumbre continua. Se descartó por dos motivos: los horizontes están
+separados por intervalos muy desiguales (1, 6, 12, 24 y 48 horas), de modo que
+la línea sugiere una continuidad que no existe —el modelo no predice a 18
+horas, por ejemplo—, y al dispersar los puntos se pierde la comparación directa
+entre predicción y valor real. Se mantiene la representación de un único
+horizonte con su intervalo, y la tabla inferior recoge los cinco a la vez.
+
+**Fallo detectado por las pruebas.** El test que verifica la coherencia entre
+la probabilidad mostrada y la decisión de alertar reveló que ambas se
+calculaban con valores distintos: la probabilidad se redondeaba a tres
+decimales para mostrarla, pero la comparación con el umbral empleaba el valor
+sin redondear. Una probabilidad de 0,0996 aparecía en la tabla como 10,0 % sin
+generar alerta.
+
+El efecto no era solo cosmético: existían casos en el entorno exacto del umbral
+que deberían haber generado alerta y no lo hacían. Sin la prueba, la
+discrepancia se habría atribuido a algún comportamiento del modelo.
+
 
 
 ## Plantilla para nuevas entradas

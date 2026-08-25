@@ -142,3 +142,30 @@ FECHA_CORTE = pd.Timestamp('2005-01-01')
 # (mañana) y 48 (pasado mañana). Predecir a horizontes intermedios como 34
 # horas no corresponde a ninguna decision que se tome en la practica.
 HORIZONTES = [1, 6, 12, 24, 48]
+
+# ---------------------------------------------------------------------------
+# Estacion 9: incertidumbre y alertas
+# ---------------------------------------------------------------------------
+
+# Valor limite horario europeo para el NO2 (Directiva 2008/50/CE). Es el
+# umbral cuya superacion el sistema debe anticipar.
+UMBRAL_LEGAL = 200.0
+
+# Cobertura nominal de los intervalos de prediccion.
+COBERTURA = 0.9
+
+# Probabilidad de superacion a partir de la cual se emite alerta. Elegido por
+# analisis de sensibilidad: es optimo para cualquier valoracion que situe el
+# coste de un episodio no advertido entre 5 y 20 veces el de una falsa alarma.
+# Detecta 51 de 76 episodios con una precision del 39,4 %.
+UMBRAL_ALERTA = 0.10
+
+# ---------------------------------------------------------------------------
+# Estacion 10: servicio
+# ---------------------------------------------------------------------------
+
+# El modelo entrenado si se versiona en el repositorio, a diferencia de los
+# datos y las figuras, para que el servicio pueda levantarse sin ejecutar
+# previamente el entrenamiento.
+MODELS_DIR = RAIZ / 'models'
+MODEL_NAME = 'no2_lgbm'
