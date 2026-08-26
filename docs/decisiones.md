@@ -1644,6 +1644,51 @@ las superaciones y el sistema se recupera en marzo, cosa que no ocurriría con
 deriva—, pero un despliegue real requeriría información adicional para
 desambiguarlo.
 
+## 2026-08-26 — Incorporación de MLflow: registro de experimentos y modelos
+
+**Motivo.** La comparación de modelos de la estación 7 —cinco algoritmos, tres
+búsquedas de hiperparámetros, pruebas con y sin el retardo semanal y con y sin
+especialización por tramos— quedaba registrada únicamente en la salida de
+consola y en este diario. Recuperar qué configuración produjo un resultado
+concreto exigía buscarlo a mano.
+
+**Qué aporta.** Cada entrenamiento registra automáticamente sus parámetros, sus
+métricas, el modelo serializado y el momento de ejecución. MLflow detecta
+además el repositorio git y guarda **el commit exacto** con el que se entrenó,
+de modo que la trazabilidad es completa: métricas, configuración y versión del
+código quedan enlazadas.
+
+**Alcance adoptado.** Almacenamiento local en SQLite, sin servidor. Se
+instrumenta la escalera de modelos y el modelo final, y este se registra en el
+registro de modelos como `modelo_NO2` versión 1.
+
+**Conexión con la estación 11.** El sistema de monitorización detecta cuándo
+procede reentrenar, pero carecía de un lugar donde versionar los modelos
+resultantes y comparar la versión nueva con la anterior. El registro de modelos
+cubre ese hueco: permite asignar alias de estado —`staging`, `production`— de
+forma que promover una versión bastaría para cambiar lo que sirve el sistema,
+sin modificar código. No se implementa la carga por alias en la API, que
+mantiene la lectura desde fichero, pero se documenta como evolución natural.
+
+**Incidencias resueltas durante la integración:**
+
+1. *Almacenamiento en ficheros retirado.* Las versiones recientes de MLflow han
+   puesto en modo mantenimiento el almacenamiento basado en ficheros sueltos y
+   exigen una base de datos. Se opta por SQLite, que es un único fichero y no
+   requiere levantar ningún servicio.
+2. *Serialización de LightGBM.* MLflow serializa los modelos de scikit-learn
+   mediante `skops`, que por seguridad solo admite los tipos de su lista
+   blanca; LightGBM y XGBoost no figuran en ella. Se emplean los guardadores
+   específicos de cada biblioteca. El registro de parámetros y métricas se
+   protege con un manejo de excepciones: es lo esencial para comparar, y un
+   fallo de serialización no debe interrumpir el pipeline.
+
+**Justificación de la elección frente a alternativas.** Se descarta un servidor
+de MLflow por no aportar nada en un proyecto individual y añadir
+infraestructura que mantener. Se descarta igualmente instrumentar la totalidad
+de los experimentos previos, ya documentados en este diario: MLflow se
+incorpora para las ejecuciones del pipeline final.
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve

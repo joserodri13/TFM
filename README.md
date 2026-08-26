@@ -258,6 +258,10 @@ Machine Learning Repository y colócalo en `data/raw/`.
   reports/ y deja el sistema listo para servir predicciones. Tarda unos 11
   segundos.
 
+  Interfaz de MLflow:
+
+    mlflow ui --backend-store-uri sqlite:///mlflow.db
+
 ## Ejecutar el sistema
 
 API REST:

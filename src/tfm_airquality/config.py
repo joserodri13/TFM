@@ -192,3 +192,14 @@ COBERTURA_MINIMA = 0.85
 
 # Incremento del MAE respecto al de calibracion que dispara la revision.
 DEGRADACION_MAE = 1.25
+
+# ---------------------------------------------------------------------------
+# MLflow
+# ---------------------------------------------------------------------------
+
+# Almacenamiento en SQLite: un unico fichero, sin necesidad de levantar
+# ningun servidor. Las versiones recientes de MLflow han retirado el
+# almacenamiento en ficheros sueltos.
+MLFLOW_DB = RAIZ / 'mlflow.db'
+MLFLOW_ARTIFACTS = RAIZ / 'mlruns'
+MLFLOW_EXPERIMENT = 'no2-forecasting'

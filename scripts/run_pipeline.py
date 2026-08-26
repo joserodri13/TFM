@@ -34,6 +34,7 @@ from tfm_airquality import monitor as mon  # noqa: E402
 from tfm_airquality import serve  # noqa: E402
 from tfm_airquality import uncertainty as unc  # noqa: E402
 from tfm_airquality import validate as val  # noqa: E402
+from tfm_airquality import tracking as track  # noqa: E402
 from tfm_airquality.clean import clean  # noqa: E402
 from tfm_airquality.features import build_features  # noqa: E402
 from tfm_airquality.load import load_airquality_data  # noqa: E402
@@ -113,15 +114,36 @@ def main(comparar=False):
     if comparar:
         titulo('7a. ESCALERA DE MODELOS (--comparar)')
 
+        track.setup()
         comp = md.train_evaluate(train, test, escenario='A')
         pivote = comp.pivot(index='horizonte', columns='modelo', values='MAE')
         pivote.to_csv(config.REPORTS_DIR / 'comparacion.csv')
+
+        modelos = md.build_models()
+        for nombre in pivote.columns:
+            metricas = {f'MAE_h{h}': float(pivote.loc[h, nombre])
+                        for h in pivote.index}
+            metricas['MAE_medio'] = float(pivote[nombre].mean())
+            metricas['skill_medio'] = float(
+                1 - pivote[nombre].mean() / liston['MAE'].mean()
+            )
+
+            track.log_model_run(
+                nombre=nombre,
+                modelo=modelos[nombre],
+                params={'escenario': 'A', 'n_variables': len(cols),
+                        'horizontes': str(list(config.HORIZONTES))},
+                metricas=metricas,
+                tags={'fase': 'comparacion', 'familia': nombre},
+            )
 
         print(pivote.round(2).to_string())
         print()
         print('MAE medio por modelo:')
         for m, v in pivote.mean().sort_values().items():
             print(f'  {m:16s} {v:6.2f}')
+        print()
+        print('registrado en MLflow')
 
     # -----------------------------------------------------------------------
     titulo('7b. MODELO FINAL')
@@ -150,6 +172,20 @@ def main(comparar=False):
     print(f'MAE medio: {resumen["MAE"].mean():.2f} '
           f'(liston {resumen["liston"].mean():.2f}, '
           f'mejora {resumen["skill"].mean():.1%})')
+
+    track.setup()
+    run_id = track.log_model_run(
+        nombre='modelo_final',
+        modelo=modelo,
+        params={**PARAMS_MODELO, 'escenario': 'A', 'n_variables': len(cols)},
+        metricas={
+            **{f'MAE_h{h}': float(resumen.loc[h, 'MAE']) for h in resumen.index},
+            'MAE_medio': float(resumen['MAE'].mean()),
+            'skill_medio': float(resumen['skill'].mean()),
+        },
+        tags={'fase': 'final', 'seleccionado': 'si'},
+    )
+    print(f'registrado en MLflow: {run_id[:8]}')
 
     # -----------------------------------------------------------------------
     titulo('9-10. CALIBRACION Y PERSISTENCIA')

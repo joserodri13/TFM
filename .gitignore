@@ -13,12 +13,10 @@ venv/
 # Notebooks
 .ipynb_checkpoints/
 reports/
+mlruns/
+mlflow.db
 
 # Editor y sistema
 .vscode/
 .idea/
 .DS_Store
-
-# Ficheros temporales de exploración
-explore.py
-prueba.py
