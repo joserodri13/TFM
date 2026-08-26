@@ -126,7 +126,7 @@ MAX_INTERPOLABLE_GAP = 2
 # Se descartan del analisis exploratorio las columnas con demasiados huecos, que no aportan informacion y 
 # distorsionan la correlacion. NMHC(GT) tiene un 90,2 % de huecos y C6H6(GT) un 50,1 %.
 UNUSABLE_COLUMNS = ['NMHC(GT)', 'C6H6(GT)']
-
+REPORTS_DIR = RAIZ / 'reports'
 # ---------------------------------------------------------------------------
 # Estacion 6: particion y evaluacion
 # ---------------------------------------------------------------------------

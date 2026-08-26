@@ -250,6 +250,13 @@ Machine Learning Repository y colócalo en `data/raw/`.
   `docs/decisiones.md`
 - Cada estación del pipeline tiene sus propias pruebas automáticas, ejecutables
   con `pytest` desde la raíz del proyecto
+- El proyecto completo se reproduce con un único comando:
+
+    python scripts/run_pipeline.py
+
+  Ejecuta las once estaciones, entrena el modelo, genera los informes en
+  reports/ y deja el sistema listo para servir predicciones. Tarda unos 11
+  segundos.
 
 ## Ejecutar el sistema
 

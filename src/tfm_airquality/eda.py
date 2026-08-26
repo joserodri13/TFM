@@ -173,7 +173,7 @@ def plot_baselines(resultados, figsize=(11, 5)):
 
 def guardar_figura(fig, nombre):
     """Guarda una figura en reports/figuras/, creando la carpeta si hace falta."""
-    destino = config.RAIZ / 'reports' / 'figuras'
+    destino = config.REPORTS_DIR / 'figuras'
     destino.mkdir(parents=True, exist_ok=True)
     ruta = destino / f'{nombre}.png'
     fig.savefig(ruta, dpi=150, bbox_inches='tight')
