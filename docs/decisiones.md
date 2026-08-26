@@ -1536,7 +1536,113 @@ El efecto no era solo cosmético: existían casos en el entorno exacto del umbra
 que deberían haber generado alerta y no lo hacían. Sin la prueba, la
 discrepancia se habría atribuido a algún comportamiento del modelo.
 
+## 2026-08-25 — Estación 11 (Monitor) completada
 
+**Justificación cuantitativa, no de principio.** La monitorización no se
+incorpora por buena práctica sino porque el propio trabajo ha medido que el
+sistema se degrada: la relación sensor-concentración se desplaza hasta un 94 %
+en un año (estación 4) y la cobertura de los intervalos cae del 90 % nominal al
+80-84 % real (estación 9). Un modelo degradado no emite ningún aviso: sigue
+devolviendo cifras con la misma apariencia de normalidad.
+
+**Arquitectura de dos capas.**
+
+1. *Deriva en las variables de entrada.* Se detecta de inmediato, sin esperar a
+   ninguna medición posterior. Indica que los sensores han cambiado de
+   comportamiento aunque todavía no pueda comprobarse el efecto.
+2. *Degradación del rendimiento.* Error y cobertura reales, que solo pueden
+   evaluarse cuando llega la medición de referencia, con el retardo del
+   horizonte de predicción.
+
+**Elección del PSI frente a contrastes de hipótesis.** Se emplea el Population
+Stability Index y no un test de Kolmogorov-Smirnov porque, con miles de
+observaciones, cualquier contraste detecta diferencias estadísticamente
+significativas pero irrelevantes en la práctica. En este caso el test devuelve
+un p-valor de cero para las ocho variables, incluidas las que no presentan
+deriva alguna. El PSI, en cambio, no depende del tamaño de la muestra y ofrece
+umbrales interpretables (0,10 y 0,25).
+
+**Decisión: solo se vigilan los sensores, no la meteorología.** La temperatura
+media pasa de 20,9 °C en el periodo de entrenamiento a 10,0 °C en el de
+evaluación, lo que produce un PSI de 2,92; la humedad absoluta alcanza 3,93.
+Ambos valores superan ampliamente el umbral de alerta sin que exista ningún
+problema: es la estacionalidad.
+
+Un sistema que vigilase estas variables emitiría alertas cada cambio de
+estación, cuatro veces al año, sin que nada estuviera averiado. El daño de las
+falsas alarmas periódicas es que el sistema deja de consultarse, de modo que
+cuando llegue el aviso relevante nadie lo atenderá.
+
+*Criterio de distinción:* un cambio cíclico se aleja y regresa; una deriva se
+aleja y no vuelve. Debe atenderse a la tendencia, no al valor puntual.
+
+**Tercera medición independiente de la deriva.** El PSI mensual de
+`PT08.S4(NO2)`, tomando como referencia el periodo de ajuste:
+
+| Periodo | PSI |
+|---|---|
+| mar-oct 2004 | 0,02 – 0,27 |
+| nov 2004 | 0,89 |
+| dic 2004 | 1,98 |
+| ene 2005 | 2,28 |
+| feb 2005 | 4,40 |
+| mar 2005 | 1,91 |
+
+Crecimiento sostenido, sin retorno. Los otros cuatro sensores oscilan sin
+tendencia. Es el mismo sensor señalado en la estación 4 por el mayor
+desplazamiento del cociente (+71 % comparando marzo con marzo) y protagonista
+de la paradoja de Simpson. Tres métodos independientes convergen en la misma
+variable.
+
+*Nota:* abril de 2005 presenta valores muy elevados en todos los sensores, pero
+el mes está incompleto —solo llega al día 4— y el índice resulta inestable con
+pocas observaciones. No debe interpretarse como deriva.
+
+**Evolución del rendimiento en el periodo de evaluación:**
+
+| Mes | MAE | Cobertura |
+|---|---|---|
+| Enero | 33,50 | 85,5 % |
+| **Febrero** | **44,89** | **71,2 %** |
+| Marzo | 31,34 | 86,4 % |
+| Abril | 28,86 | 87,5 % |
+
+**Hallazgo: no hay degradación monótona, hay un pico.** El error sube un 34 % en
+febrero y la cobertura cae 14 puntos, para recuperarse en marzo. La causa más
+probable no es la deriva del sensor —que es progresiva— sino que febrero
+concentra 160 de las 386 superaciones del conjunto, el 41 %: el modelo se
+enfrenta a un régimen que apenas vio durante el entrenamiento.
+
+**Consecuencia para el diseño: hacen falta las dos capas.** Si solo se vigilase
+el error, en marzo el sistema declararía el problema resuelto mientras la
+deriva de `PT08.S4` continúa (PSI de 1,91 ese mismo mes). Y si solo se vigilase
+la distribución de entrada, el episodio de febrero pasaría inadvertido. Cada
+capa detecta lo que la otra no ve.
+
+**Política de actuación.** Cada tipo de alarma tiene una respuesta distinta, con
+costes muy diferentes:
+
+| Alarma | Umbral | Acción |
+|---|---|---|
+| Deriva de entrada | PSI ≥ 0,25 | Verificar el sensor y recalibrar |
+| Cobertura insuficiente | < 85 % | Recalibrar los intervalos con datos recientes |
+| Error elevado | MAE > 125 % del de calibración | Reentrenar incorporando datos recientes |
+
+Recalibrar los intervalos requiere minutos y no exige reentrenar; reentrenar el
+modelo es un proceso completo con validación. Distinguir ambas respuestas evita
+lanzar el procedimiento caro cuando basta el barato.
+
+**Alarmas que el sistema habría emitido sobre el periodo de evaluación:** una de
+deriva (`PT08.S4`, PSI 1,82), una de cobertura (febrero, 71,2 %) y dos de error
+elevado (enero y febrero).
+
+**Limitación declarada.** El sistema detecta que el rendimiento se degrada pero
+no determina la causa: un mismo aumento del error puede deberse a deriva del
+sensor o a un cambio de régimen, y las acciones recomendadas difieren. Con los
+datos disponibles la evidencia apunta al régimen —febrero concentra el 41 % de
+las superaciones y el sistema se recupera en marzo, cosa que no ocurriría con
+deriva—, pero un despliegue real requeriría información adicional para
+desambiguarlo.
 
 ## Plantilla para nuevas entradas
 

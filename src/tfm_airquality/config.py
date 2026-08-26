@@ -169,3 +169,26 @@ UMBRAL_ALERTA = 0.10
 # previamente el entrenamiento.
 MODELS_DIR = RAIZ / 'models'
 MODEL_NAME = 'no2_lgbm'
+
+# ---------------------------------------------------------------------------
+# Estacion 11: monitorizacion
+# ---------------------------------------------------------------------------
+
+# Variables sometidas a vigilancia de deriva: solo los sensores, que son el
+# hardware susceptible de degradarse. La meteorologia (T, RH, AH) se excluye
+# porque su variacion es estacional y esperable: entre verano e invierno la
+# temperatura media pasa de 20,9 a 10,0 grados, lo que produciria un PSI de
+# 2,9 y una alerta cada cambio de estacion sin que nada estuviera averiado.
+MONITOR_COLUMNS = SENSOR_COLUMNS
+
+# Umbrales convencionales del PSI, procedentes de su uso en modelos de riesgo.
+PSI_ESTABLE = 0.10
+PSI_MODERADO = 0.25
+
+# Umbrales de actuacion. El de cobertura se fija en 5 puntos por debajo de la
+# nominal: una desviacion menor entra dentro de la variabilidad esperable de
+# una muestra mensual.
+COBERTURA_MINIMA = 0.85
+
+# Incremento del MAE respecto al de calibracion que dispara la revision.
+DEGRADACION_MAE = 1.25

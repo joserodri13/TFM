@@ -138,7 +138,7 @@ coincide con el de su módulo de código.
 | 8 | Explain | `explain.py` | SHAP y contraste con la química de sensores | **Hecha**  |
 | 9 | Uncertainty | `uncertainty.py` | Intervalos y probabilidad de superar umbral | **Hecha**  |
 | 10 | Serve | `serve.py` | API que recibe datos y devuelve predicción | **Hecha**  |
-| 11 | Monitor | `monitor.py` | Vigilancia de degradación y reentrenamiento | Pendiente |
+| 11 | Monitor | `monitor.py` | Vigilancia de degradación y reentrenamiento | **Hecha** |
 | 12 | Memoria | — | Informe de 20 caras orientado a negocio | Pendiente |
 | 13 | Entrega | — | MP4 de 5 minutos y checklist de la guía | Pendiente |
 
