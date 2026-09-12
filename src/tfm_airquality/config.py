@@ -193,6 +193,9 @@ COBERTURA_MINIMA = 0.85
 # Incremento del MAE respecto al de calibracion que dispara la revision.
 DEGRADACION_MAE = 1.25
 
+# Valor limite anual para la proteccion de la salud humana (Directiva 2008/50/CE)
+UMBRAL_LEGAL_ANUAL = 40.0
+
 # ---------------------------------------------------------------------------
 # MLflow
 # ---------------------------------------------------------------------------

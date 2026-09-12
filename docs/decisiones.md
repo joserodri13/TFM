@@ -1689,6 +1689,53 @@ infraestructura que mantener. Se descarta igualmente instrumentar la totalidad
 de los experimentos previos, ya documentados en este diario: MLflow se
 incorpora para las ejecuciones del pipeline final.
 
+## 2026-09-05 — Elección medida de las ventanas móviles
+
+**Contexto.** Al redactar la memoria detecté que la elección de las ventanas
+móviles de 3 y 24 horas era la única decisión del proyecto que no se había
+tomado midiendo. La de 24 horas tenía justificación —cubre un ciclo diario
+completo, cuya relevancia está medida por la autocorrelación de 0,708 a ese
+retardo—, pero la de 3 horas se fijó por criterio y se justificó a posteriori
+con el argumento de que la autocorrelación a ese plazo sigue siendo alta
+(0,612 frente a 0,352 a las 6 horas).
+
+**Experimento.** Se compararon cuatro configuraciones de ventanas, entrenando
+el modelo seleccionado (LightGBM ajustado, escenario A) y evaluando sobre el
+periodo de test con el mismo arnés empleado en el resto del proyecto.
+
+| Ventanas | MAE medio |
+|---|---|
+| Solo 24 h | 28,08 |
+| **3 y 24 h** | **27,66** |
+| 6 y 24 h | 27,67 |
+| 3, 12 y 24 h | 27,92 |
+
+**Conclusiones:**
+
+1. *Añadir una ventana corta aporta.* Con una única ventana de 24 horas el
+   error sube a 28,08; con dos ventanas baja a 27,66. La diferencia de 0,42
+   µg/m³ es modesta pero consistente.
+2. *La longitud concreta de la ventana corta es indiferente.* Tres y seis
+   horas producen 27,66 y 27,67 respectivamente, diferencia dentro del ruido
+   de una única partición de test. La decisión relevante no era el valor
+   exacto, sino incluir o no una ventana corta.
+3. *Más ventanas no mejoran.* Añadir una tercera ventana intermedia de 12
+   horas empeora el resultado hasta 27,92, previsiblemente por introducir
+   variables redundantes.
+
+**Decisión:** se mantienen las ventanas de 3 y 24 horas, ahora con respaldo
+empírico y no solo argumental.
+
+**Nota metodológica.** Se descartó probar una ventana de 1 hora: la media de
+una única observación coincide con el propio valor, que ya figura como
+variable, y su desviación típica es cero, de modo que solo añadiría columnas
+constantes.
+
+**Observación para la memoria:** este experimento sigue el mismo patrón que
+los del umbral de interpolación (24 de julio) y el retardo de 168 horas (22 de
+agosto). En los tres casos la decisión se resolvió midiendo en lugar de por
+criterio, y en dos de ellos el resultado contradijo la intuición inicial.
+
 ## Plantilla para nuevas entradas
 
     ## AAAA-MM-DD — Título breve

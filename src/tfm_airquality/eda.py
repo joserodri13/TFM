@@ -171,6 +171,40 @@ def plot_baselines(resultados, figsize=(11, 5)):
     fig.tight_layout()
     return fig
 
+def exceedance_report(df, umbral=None, columna=None):
+    """
+    Caracteriza las superaciones del límite legal: cuántas, en cuántos
+    episodios, de qué duración y cuándo se producen.
+
+    Un episodio es una racha de horas consecutivas por encima del umbral.
+    """
+    from tfm_airquality.clean import gap_runs
+
+    umbral = umbral or config.UMBRAL_LEGAL
+    columna = columna or config.TARGET
+
+    serie = df[columna]
+    observado = serie.dropna()
+    supera = observado > umbral
+
+    # gap_runs localiza rachas de NaN, asi que se marcan como NaN las
+    # superaciones. Se trabaja sobre las horas observadas para no confundir
+    # episodios con periodos sin medicion.
+    episodios = gap_runs(observado.where(~supera))
+
+    return {
+        'superaciones': int(supera.sum()),
+        'pct_observadas': round(100 * supera.mean(), 2),
+        'episodios': len(episodios),
+        'duracion_media': round(float(episodios['horas'].mean()), 1),
+        'duracion_maxima': int(episodios['horas'].max()),
+        'pct_una_hora': round(100 * (episodios['horas'] == 1).mean(), 1),
+        'pct_tres_o_mas': round(100 * (episodios['horas'] >= 3).mean(), 1),
+        'media_anual': round(float(serie.mean()), 1),
+        'por_hora': supera.groupby(observado.index.hour).sum().to_dict(),
+        'por_mes': supera.groupby(observado.index.month).sum().to_dict(),
+    }
+
 def guardar_figura(fig, nombre):
     """Guarda una figura en reports/figuras/, creando la carpeta si hace falta."""
     destino = config.REPORTS_DIR / 'figuras'

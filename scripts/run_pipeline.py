@@ -1,19 +1,3 @@
-"""
-Pipeline completo del proyecto, de los datos crudos al modelo desplegable.
-
-Uso:
-    python scripts/run_pipeline.py              entrena solo el modelo final
-    python scripts/run_pipeline.py --comparar   entrena tambien la escalera
-
-Salidas:
-    models/                     modelo, errores de calibracion y metadatos
-    reports/calidad_datos.csv   informe de huecos por columna
-    reports/baselines.csv       metricas de los modelos de referencia
-    reports/modelo_final.csv    metricas del modelo seleccionado
-    reports/deriva.csv          PSI por sensor
-    reports/comparacion.csv     escalera de modelos (solo con --comparar)
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -39,6 +23,7 @@ from tfm_airquality.clean import clean  # noqa: E402
 from tfm_airquality.features import build_features  # noqa: E402
 from tfm_airquality.load import load_airquality_data  # noqa: E402
 from tfm_airquality.split import split_temporal  # noqa: E402
+from tfm_airquality import report  # noqa: E402
 
 # Hiperparametros seleccionados en la estacion 7 mediante busqueda con
 # validacion cruzada temporal.
@@ -80,6 +65,21 @@ def main(comparar=False):
     print(f'columnas descartadas : {config.UNUSABLE_COLUMNS}')
     print(f'horas utilizables    : {utiles:,} de {len(df):,}')
     print(f'valores interpolados : {int(df["n_estimados"].sum())}')
+
+    from tfm_airquality import eda
+    resumen = eda.exceedance_report(df)
+
+    print()
+    print('SUPERACIONES DEL LIMITE LEGAL')
+    print(f'  superaciones     : {resumen["superaciones"]} '
+          f'({resumen["pct_observadas"]} % de las horas observadas)')
+    print(f'  episodios        : {resumen["episodios"]}')
+    print(f'  duracion media   : {resumen["duracion_media"]} h')
+    print(f'  duracion maxima  : {resumen["duracion_maxima"]} h')
+    print(f'  media anual      : {resumen["media_anual"]} ug/m3')
+
+    pd.DataFrame([resumen]).to_csv(
+        config.REPORTS_DIR / 'superaciones.csv', index=False)
 
     # -----------------------------------------------------------------------
     titulo('5. CONSTRUCCION DE VARIABLES')
@@ -237,6 +237,35 @@ def main(comparar=False):
         print()
         print('ALARMAS')
         print(avisos.to_string(index=False))
+
+        # -----------------------------------------------------------------------
+    titulo('CIFRAS DE LA MEMORIA')
+    # -----------------------------------------------------------------------
+
+    cifras = []
+    cifras += report.calidad_del_dato(crudo, df)
+    cifras += report.benceno(crudo)
+    cifras += report.patrones(df)
+    cifras += report.superaciones(df)
+    cifras += report.correlaciones(df)
+    cifras += report.desgaste(df)
+    cifras += report.variables(df, tabla, cols)
+    cifras += report.evaluacion(df, train, test)
+    cifras += report.modelos(liston, resumen,
+                             pivote if comparar else None)
+
+    anchuras = unc.conformal_width_by_horizon(errores, horizontes_cal)
+    dentro = ((resultado['real'] >= resultado['inferior']) &
+              (resultado['real'] <= resultado['superior']))
+    cobertura_h = dentro.groupby(te['horizonte'].values).mean().to_dict()
+    cifras += report.incertidumbre(anchuras, cobertura_h)
+
+    cifras += report.monitorizacion(deriva, rend)
+
+    ruta_csv, ruta_txt = report.guardar(cifras)
+    print(f'{len(cifras)} cifras registradas')
+    print(f'  -> {ruta_csv.name}')
+    print(f'  -> {ruta_txt.name}')
 
     # -----------------------------------------------------------------------
     titulo(f'PIPELINE COMPLETADO EN {time.time() - inicio:.0f} SEGUNDOS')
