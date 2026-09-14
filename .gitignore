@@ -13,10 +13,13 @@ venv/
 # Notebooks
 .ipynb_checkpoints/
 reports/
-mlruns/
-mlflow.db
 
 # Editor y sistema
 .vscode/
 .idea/
 .DS_Store
+models/test_tmp*
+__pycache__/
+.pytest_cache/
+mlruns/
+mlflow.db
