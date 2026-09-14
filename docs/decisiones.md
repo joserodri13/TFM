@@ -1705,6 +1705,16 @@ periodo de test con el mismo arnés empleado en el resto del proyecto.
 | 6 y 24 h | 27,67 |
 | 3, 12 y 24 h | 27,92 |
 
+## 2026-09-14 — Se retira el Dockerfile del repositorio
+
+**Decisión:** se eliminan `Dockerfile` y `.dockerignore`.
+
+**Motivo:** no llegó a construirse la imagen ni se recoge en la memoria.
+Un fichero que el tribunal encuentra sin explicación en el documento
+genera más dudas que valor.
+
+**Consecuencia:** el despliegue en contenedor queda como línea futura.
+
 **Conclusiones:**
 
 1. *Añadir una ventana corta aporta.* Con una única ventana de 24 horas el
