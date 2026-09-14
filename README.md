@@ -1,4 +1,4 @@
-# TFM — Predicción de NO₂ a 24-48 horas a partir de sensores de óxido metálico
+# TFM — Predicción de NO₂ a 1-48 horas a partir de sensores de óxido metálico
 
 Trabajo Fin de Máster en Big Data, Data Science e Inteligencia Artificial (UCM).
 Modalidad 1: análisis de un conjunto de datos.
@@ -8,16 +8,17 @@ Modalidad 1: análisis de un conjunto de datos.
 ## El problema
 
 La vigilancia de la calidad del aire se apoya en analizadores certificados, que
-emplean métodos de referencia normalizados (quimioluminiscencia en el caso del
+emplean métodos de referencia normalizados (quimiluminiscencia en el caso del
 NO₂) y requieren infraestructura, mantenimiento y calibración periódica. Los
 dispositivos multisensor de óxido metálico son una tecnología distinta, mucho
 más ligera, que permitiría desplegar un número mayor de puntos de medida.
 
-La pregunta que aborda este trabajo es si un nodo equipado únicamente con
-sensores de óxido metálico puede anticipar, con 24 a 48 horas de antelación, la
-concentración de NO₂ que mediría un analizador certificado situado en el mismo
-punto, con precisión suficiente para fundamentar decisiones operativas como la
-activación de protocolos de restricción de tráfico.
+La pregunta que aborda este trabajo es si la concentración de NO₂ puede
+anticiparse con entre 1 y 48 horas de antelación con precisión suficiente para
+fundamentar decisiones operativas, como la activación de protocolos de
+restricción de tráfico. Como análisis complementario se cuantifica cuánta
+precisión se pierde cuando el nodo no dispone del histórico del analizador
+certificado y debe apoyarse solo en los sensores de óxido metálico.
 
 El obstáculo no es acertar hoy, sino **seguir acertando dentro de seis meses**.
 En este mismo conjunto de datos se ha medido que la relación entre la señal de
@@ -54,11 +55,14 @@ obligatoria:
 El conjunto no contiene datos de carácter personal, por lo que el RGPD no
 resulta de aplicación.
 
+Por esa licencia, el fichero **no se redistribuye en este repositorio**. Las
+instrucciones de descarga están en la sección de instalación.
+
 ---
 
 ## Qué se predice y por qué
 
-**Variable objetivo:** `NO2(GT)`, a horizontes de 1 a 48 horas.
+**Variable objetivo:** `NO2(GT)`, a horizontes de 1, 6, 12, 24 y 48 horas.
 
 Motivos de la elección:
 
@@ -78,6 +82,10 @@ Variables descartadas como objetivo:
 | `C6H6(GT)` | No es una medición: es una transformación de `PT08.S2` (ver hallazgos) |
 | `NOx(GT)` | Sin límite legal propio; se conserva como objetivo secundario |
 
+Los cinco horizontes corresponden a decisiones operativas reales —reacción
+inmediata, misma jornada, día siguiente y dos días vista—. El sistema no
+predice horizontes distintos de esos cinco, y se declara como limitación.
+
 ---
 
 ## Los dos escenarios de despliegue
@@ -85,16 +93,20 @@ Variables descartadas como objetivo:
 El trabajo compara dos situaciones para cuantificar qué se pierde al prescindir
 del analizador de referencia:
 
-- **Escenario A (referencia).** Se predice el NO₂ disponiendo del histórico del
-  analizador certificado. Es el techo de rendimiento alcanzable.
-- **Escenario B (operativo).** Se predice empleando únicamente el histórico de
-  los cinco sensores de óxido metálico y la meteorología de placa. Corresponde
-  a un nodo que no lleva analizador.
+- **Escenario A (principal).** Se predice el NO₂ disponiendo del histórico del
+  analizador certificado. Es el escenario sobre el que se desarrollan todas las
+  estaciones del pipeline y del que procede el modelo desplegado.
+- **Escenario B (complementario).** Se predice empleando únicamente el
+  histórico de los cinco sensores de óxido metálico y la meteorología de placa.
+  Corresponde a un nodo que no lleva analizador, y se evalúa como análisis
+  adicional sin desarrollarse en las estaciones posteriores.
 
 La diferencia entre ambos está anticipada por los datos: la autocorrelación del
 NO₂ a 24 horas es 0,708, mientras que la correlación de la mejor variable de
 sensor al mismo horizonte es 0,411. El escenario A puede explotar la primera y
-el B no.
+el B no. Medido sobre el periodo de test, prescindir del histórico certificado
+cuesta entre un 10 % y un 14 % de precisión en los horizontes operativamente
+relevantes.
 
 ---
 
@@ -107,9 +119,9 @@ excelentes y falsas.
 Se emplea **partición temporal estricta** con corte el 1 de enero de 2005:
 entrenamiento con marzo-diciembre de 2004, evaluación con enero-abril de 2005.
 El periodo de test cae en invierno, la estación con más episodios de NO₂
-elevado. Se aplica además un **embargo de 48 horas** —el horizonte máximo—
-antes del corte, para que ninguna fila de entrenamiento tenga su valor objetivo
-dentro del periodo de evaluación.
+elevado. Se aplica además un **embargo** antes del corte —dimensionado al
+horizonte máximo de predicción— para que ninguna fila de entrenamiento tenga su
+valor objetivo dentro del periodo de evaluación.
 
 Cada modelo se compara contra **modelos de referencia** (persistencia y
 estacionalidad diaria y semanal) mediante *skill score*. Un modelo que no supere
@@ -117,6 +129,22 @@ a "mañana como hoy a la misma hora" no aporta valor, por sofisticado que sea.
 
 **El listón a batir es un MAE medio de 35,68 µg/m³** sobre los 48 horizontes,
 correspondiente al mejor modelo de referencia en cada uno de ellos.
+
+---
+
+## Resultados
+
+**Modelo seleccionado:** LightGBM con `n_estimators=500`, `num_leaves=63` y
+`learning_rate=0.05`, escenario A.
+
+- **MAE medio de 27,66 µg/m³** sobre los cinco horizontes del sistema, un
+  10,7 % mejor que el mejor modelo de referencia en cada uno
+- Sobre los 48 horizontes completos, el modelo supera al mejor baseline en 36
+  de ellos, con un skill medio del 7,7 %
+- Las predicciones se acompañan de **intervalos por predicción conforme** con
+  calibración por horizonte, y de una **probabilidad de superar los 200 µg/m³**
+- Con el umbral de alerta seleccionado (0,10), el sistema detecta 51 de los 76
+  episodios de superación del periodo de test, con una precisión del 39,4 %
 
 ---
 
@@ -135,12 +163,16 @@ coincide con el de su módulo de código.
 | 5 | Features | `features.py` | Retardos, medias móviles, calendario | **Hecha** |
 | 6 | Split | `split.py`, `metrics.py`, `baselines.py`, `evaluate.py` | Baselines y listón a batir | **Hecha** |
 | 7 | Model | `model.py` | Escalera de modelos comparados | **Hecha** |
-| 8 | Explain | `explain.py` | SHAP y contraste con la química de sensores | **Hecha**  |
-| 9 | Uncertainty | `uncertainty.py` | Intervalos y probabilidad de superar umbral | **Hecha**  |
-| 10 | Serve | `serve.py` | API que recibe datos y devuelve predicción | **Hecha**  |
+| 8 | Explain | `explain.py` | SHAP y contraste con la química de sensores | **Hecha** |
+| 9 | Uncertainty | `uncertainty.py` | Intervalos y probabilidad de superar umbral | **Hecha** |
+| 10 | Serve | `serve.py` | API que recibe datos y devuelve predicción | **Hecha** |
 | 11 | Monitor | `monitor.py` | Vigilancia de degradación y reentrenamiento | **Hecha** |
-| 12 | Memoria | — | Informe de 20 caras orientado a negocio | Pendiente |
-| 13 | Entrega | — | MP4 de 5 minutos y checklist de la guía | Pendiente |
+| 12 | Memoria | — | Informe orientado a negocio | **Hecha** |
+| 13 | Entrega | — | MP4 de 5 minutos y checklist de la guía | En curso |
+
+El registro de experimentos y el versionado de modelos se llevan con **MLflow**
+(`tracking.py`), y la trazabilidad de las cifras citadas en la memoria con
+`report.py`.
 
 ### Correspondencia con las fases exigidas por la guía del TFM
 
@@ -209,7 +241,9 @@ Todos verificados con el código del proyecto.
   global de solo 0,16 con el objetivo, pero correlaciones mensuales de hasta
   0,835.** Es un caso de paradoja de Simpson: la relación existe dentro de cada
   mes, pero el nivel base se desplaza lo suficiente entre meses como para
-  destruirla a escala global.
+  destruirla a escala global. El análisis SHAP confirma que el modelo sí lo
+  aprovecha, apoyándose en las variables cíclicas de mes para compensar ese
+  desplazamiento.
 
 ---
 
@@ -226,8 +260,18 @@ Requiere Python 3.12.
 
     pip install -e ".[dev]"
 
-Los datos **no** están en este repositorio. Descarga `AirQuality.csv` del UCI
-Machine Learning Repository y colócalo en `data/raw/`.
+### Datos
+
+El conjunto **no** está incluido en este repositorio, por las condiciones de
+uso descritas más arriba. Para ejecutar el pipeline completo:
+
+1. Descarga el Air Quality Data Set del UCI Machine Learning Repository:
+   <https://archive.ics.uci.edu/dataset/360/air+quality>
+2. Coloca el fichero `AirQuality.csv` en la carpeta `data/raw/`
+3. Ejecuta el pipeline
+
+El modelo entrenado sí está versionado, de modo que la API y el panel pueden
+levantarse sin descargar los datos ni reentrenar.
 
 ---
 
@@ -235,10 +279,12 @@ Machine Learning Repository y colócalo en `data/raw/`.
 
     src/tfm_airquality/   código del pipeline, una estación por módulo
     tests/                pruebas automáticas del código
-    docs/                 diario de decisiones y borradores de la memoria
+    scripts/              orquestación del pipeline completo
+    docs/                 diario de decisiones y capturas del proceso
     notebooks/            exploración; el código estable se muda a src/
-    reports/figuras/      figuras generadas, ignorado por git
-    data/                 datos, ignorado por git
+    models/               modelo entrenado y sus metadatos, versionados
+    reports/figuras/      figuras citadas en la memoria, versionadas
+    data/raw/             datos, ignorado por git
 
 ---
 
@@ -246,21 +292,25 @@ Machine Learning Repository y colócalo en `data/raw/`.
 
 - Los datos no se versionan en git: el repositorio contiene código, no ficheros
   de datos
+- El modelo entrenado y sus metadatos (2,8 MB) sí se versionan, para poder
+  levantar el sistema sin reentrenar
 - Cada decisión de diseño queda registrada con su fecha y su motivo en
   `docs/decisiones.md`
 - Cada estación del pipeline tiene sus propias pruebas automáticas, ejecutables
   con `pytest` desde la raíz del proyecto
 - El proyecto completo se reproduce con un único comando:
 
-    python scripts/run_pipeline.py
+      python scripts/run_pipeline.py
 
   Ejecuta las once estaciones, entrena el modelo, genera los informes en
-  reports/ y deja el sistema listo para servir predicciones. Tarda unos 11
+  `reports/` y deja el sistema listo para servir predicciones. Tarda unos 11
   segundos.
 
-  Interfaz de MLflow:
+Interfaz de MLflow, para consultar el registro de experimentos:
 
     mlflow ui --backend-store-uri sqlite:///mlflow.db
+
+---
 
 ## Ejecutar el sistema
 
@@ -272,6 +322,8 @@ API REST:
 Panel de visualización:
 
     streamlit run app.py
+
+---
 
 ## Convenciones
 

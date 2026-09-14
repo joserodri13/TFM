@@ -1,5 +1,5 @@
 # Datos: nunca en git. El CSV se queda en tu ordenador.
-data/*
+data/
 !data/.gitkeep
 
 # Python
