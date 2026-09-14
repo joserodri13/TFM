@@ -12,7 +12,8 @@ venv/
 
 # Notebooks
 .ipynb_checkpoints/
-reports/
+reports/*
+!reports/figuras/
 
 # Editor y sistema
 .vscode/

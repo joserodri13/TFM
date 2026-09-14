@@ -205,7 +205,7 @@ devuelve una tabla de 9.471 filas y **una sola columna**, en la que los quince
 nombres de variable quedan concatenados como si fueran el nombre de esa única
 columna, y los datos como texto.
 
-Ver `docs/capturas/01-lectura-ingenua-una-columna.png`.
+Ver `docs/capturas/columnas_erroneas.png`.
 
 **Por qué importa:** este es el tipo de fallo más peligroso en un proyecto de
 datos, porque no interrumpe la ejecución. El programa termina correctamente y
@@ -1510,11 +1510,6 @@ emitida al 21 % de probabilidad y valor real de 199 µg/m³, contabilizado como
 fallo por no alcanzar los 200. Físicamente, 199 y 201 µg/m³ son la misma
 situación; la distinción entre acierto y error es arbitraria en el entorno del
 umbral. Conviene declararlo al interpretar las métricas de precisión y recall.
-
-**Dockerfile.** Se proporciona para el despliegue en contenedor, sin haber sido
-ejecutado: instalar el entorno de contenedores no resultaba prioritario frente
-al resto de tareas pendientes. La memoria debe indicar que el sistema *está
-preparado* para contenerizar, no que se haya desplegado de ese modo.
 
 **Diseño del gráfico del panel.** Se probó representar la trayectoria completa
 de predicción, uniendo los cinco horizontes con una línea y una banda de
