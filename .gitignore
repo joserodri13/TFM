@@ -1,6 +1,8 @@
 # Datos: nunca en git. El CSV se queda en tu ordenador.
-data/
-!data/.gitkeep
+data/*
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
 
 # Python
 __pycache__/
