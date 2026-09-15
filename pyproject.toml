@@ -1,7 +1,7 @@
 [project]
 name = "tfm-airquality"
-version = "0.1.0"
-description = "Predicción de NO2 a 24-48 horas a partir de sensores de bajo coste"
+version = "1.0.0"
+description = "Predicción de NO2 a 1-48 horas a partir de sensores de óxido metálico"
 requires-python = ">=3.12"
 
 dependencies = [

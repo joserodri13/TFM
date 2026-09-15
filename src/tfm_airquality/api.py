@@ -23,7 +23,7 @@ class Medicion(BaseModel):
 def health():
     """Comprueba que el servicio está vivo y el modelo se carga."""
     try:
-        _, _, meta = serve.load_model()
+        _, _, _, meta = serve.load_model()
         return {
             'estado': 'ok',
             'modelo': meta['nombre'],

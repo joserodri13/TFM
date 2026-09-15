@@ -55,8 +55,75 @@ obligatoria:
 El conjunto no contiene datos de carácter personal, por lo que el RGPD no
 resulta de aplicación.
 
-Por esa licencia, el fichero **no se redistribuye en este repositorio**. Las
-instrucciones de descarga están en la sección de instalación.
+Por esa licencia, el fichero **no se redistribuye en este repositorio**. El
+paso 3 de la puesta en marcha indica dónde descargarlo.
+
+---
+
+## Puesta en marcha
+
+Requiere Python 3.12 o superior. Yo he utilizado Python 3.14.
+
+**1. Clonar el repositorio**
+
+    git clone https://github.com/joserodri13/TFM.git
+    cd TFM
+
+**2. Crear el entorno e instalar**
+
+    python -m venv .venv
+    .venv\Scripts\activate        # Windows
+    source .venv/bin/activate     # macOS / Linux
+
+    pip install -e ".[dev]"
+
+> **Los pasos 3 y 4 solo son necesarios para reentrenar el modelo desde cero.**
+> El modelo entrenado y sus metadatos están incluidos en el repositorio, de
+> modo que la API y el panel funcionan sin descargar los datos.
+
+**3. Descargar los datos**
+
+El conjunto no está incluido en este repositorio por sus condiciones de uso.
+Descárgalo de kaggle Air Quality Dataset:
+
+<https://www.kaggle.com/datasets/fedesoriano/air-quality-data-set>
+
+Coloca el fichero `AirQuality.csv` en la carpeta `data/raw/`.
+
+**4. Ejecutar el pipeline completo**
+
+    python scripts/run_pipeline.py
+
+Recorre las once estaciones, entrena el modelo, genera los informes en
+`reports/` y deja el sistema listo para servir predicciones. Tarda unos 11
+segundos.
+
+**5. Levantar la API**
+
+    uvicorn tfm_airquality.api:app
+
+Documentación interactiva en <http://127.0.0.1:8000/docs>.
+
+**6. Abrir el panel de visualización**
+
+    streamlit run app.py
+
+### Otros comandos
+
+Pruebas automáticas:
+
+    pytest
+
+Las pruebas cargan el conjunto de datos real, así que requieren haber
+completado el paso 3. Sin el CSV fallan con `FileNotFoundError`.
+
+Registro de experimentos y comparación de modelos en MLflow:
+
+    mlflow ui --backend-store-uri sqlite:///mlflow.db
+
+Interfaz en <http://127.0.0.1:5000>. La base de datos de experimentos se crea
+al ejecutar el pipeline (paso 4), así que hasta entonces la interfaz estará
+vacía.
 
 ---
 
@@ -119,16 +186,16 @@ excelentes y falsas.
 Se emplea **partición temporal estricta** con corte el 1 de enero de 2005:
 entrenamiento con marzo-diciembre de 2004, evaluación con enero-abril de 2005.
 El periodo de test cae en invierno, la estación con más episodios de NO₂
-elevado. Se aplica además un **embargo** antes del corte —dimensionado al
-horizonte máximo de predicción— para que ninguna fila de entrenamiento tenga su
-valor objetivo dentro del periodo de evaluación.
+elevado. Se aplica además un **embargo de 48 horas** —el horizonte máximo—
+antes del corte, para que ninguna fila de entrenamiento tenga su valor objetivo
+dentro del periodo de evaluación.
 
 Cada modelo se compara contra **modelos de referencia** (persistencia y
 estacionalidad diaria y semanal) mediante *skill score*. Un modelo que no supere
 a "mañana como hoy a la misma hora" no aporta valor, por sofisticado que sea.
 
-**El listón a batir es un MAE medio de 35,68 µg/m³** sobre los 48 horizontes,
-correspondiente al mejor modelo de referencia en cada uno de ellos.
+**El listón a batir es un MAE medio de 31,34 µg/m³** sobre los cinco
+horizontes, correspondiente al mejor modelo de referencia en cada uno de ellos.
 
 ---
 
@@ -137,10 +204,19 @@ correspondiente al mejor modelo de referencia en cada uno de ellos.
 **Modelo seleccionado:** LightGBM con `n_estimators=500`, `num_leaves=63` y
 `learning_rate=0.05`, escenario A.
 
-- **MAE medio de 27,66 µg/m³** sobre los cinco horizontes del sistema, un
-  10,7 % mejor que el mejor modelo de referencia en cada uno
-- Sobre los 48 horizontes completos, el modelo supera al mejor baseline en 36
-  de ellos, con un skill medio del 7,7 %
+| Horizonte | Listón | Modelo | Skill |
+|---|---|---|---|
+| 1 h | 18,66 | 18,02 | 3,4 % |
+| 6 h | 32,93 | 29,15 | 11,5 % |
+| 12 h | 32,93 | 29,97 | 9,0 % |
+| 24 h | 32,93 | 30,16 | 8,4 % |
+| 48 h | 39,24 | 31,00 | 21,0 % |
+| **Media** | **31,34** | **27,66** | **10,7 %** |
+
+- El modelo bate a la referencia en los cinco horizontes, y donde más aporta es
+  a 48 horas, que es justo donde más margen de reacción hay
+- Sobre los 48 horizontes completos supera al mejor baseline en 36 de ellos,
+  con un skill medio del 7,7 %
 - Las predicciones se acompañan de **intervalos por predicción conforme** con
   calibración por horizonte, y de una **probabilidad de superar los 200 µg/m³**
 - Con el umbral de alerta seleccionado (0,10), el sistema detecta 51 de los 76
@@ -168,7 +244,7 @@ coincide con el de su módulo de código.
 | 10 | Serve | `serve.py` | API que recibe datos y devuelve predicción | **Hecha** |
 | 11 | Monitor | `monitor.py` | Vigilancia de degradación y reentrenamiento | **Hecha** |
 | 12 | Memoria | — | Informe orientado a negocio | **Hecha** |
-| 13 | Entrega | — | MP4 de 5 minutos y checklist de la guía | En curso |
+| 13 | Entrega | — | MP4 de 5 minutos y checklist de la guía | **Hecha** |
 
 El registro de experimentos y el versionado de modelos se llevan con **MLflow**
 (`tracking.py`), y la trazabilidad de las cifras citadas en la memoria con
@@ -247,34 +323,6 @@ Todos verificados con el código del proyecto.
 
 ---
 
-## Instalación
-
-Requiere Python 3.12.
-
-    git clone https://github.com/joserodri13/TFM.git
-    cd TFM
-
-    python -m venv .venv
-    .venv\Scripts\activate        # Windows
-    source .venv/bin/activate     # macOS / Linux
-
-    pip install -e ".[dev]"
-
-### Datos
-
-El conjunto **no** está incluido en este repositorio, por las condiciones de
-uso descritas más arriba. Para ejecutar el pipeline completo:
-
-1. Descarga el Air Quality Data Set del UCI Machine Learning Repository:
-   <https://archive.ics.uci.edu/dataset/360/air+quality>
-2. Coloca el fichero `AirQuality.csv` en la carpeta `data/raw/`
-3. Ejecuta el pipeline
-
-El modelo entrenado sí está versionado, de modo que la API y el panel pueden
-levantarse sin descargar los datos ni reentrenar.
-
----
-
 ## Estructura del repositorio
 
     src/tfm_airquality/   código del pipeline, una estación por módulo
@@ -296,32 +344,9 @@ levantarse sin descargar los datos ni reentrenar.
   levantar el sistema sin reentrenar
 - Cada decisión de diseño queda registrada con su fecha y su motivo en
   `docs/decisiones.md`
-- Cada estación del pipeline tiene sus propias pruebas automáticas, ejecutables
-  con `pytest` desde la raíz del proyecto
-- El proyecto completo se reproduce con un único comando:
-
-      python scripts/run_pipeline.py
-
-  Ejecuta las once estaciones, entrena el modelo, genera los informes en
-  `reports/` y deja el sistema listo para servir predicciones. Tarda unos 11
-  segundos.
-
-Interfaz de MLflow, para consultar el registro de experimentos:
-
-    mlflow ui --backend-store-uri sqlite:///mlflow.db
-
----
-
-## Ejecutar el sistema
-
-API REST:
-
-    uvicorn tfm_airquality.api:app
-    # documentación en http://127.0.0.1:8000/docs
-
-Panel de visualización:
-
-    streamlit run app.py
+- Cada estación del pipeline tiene sus propias pruebas automáticas
+- Todas las cifras citadas en la memoria proceden de ejecutar el pipeline;
+  ninguna está escrita a mano
 
 ---
 
