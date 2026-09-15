@@ -98,6 +98,12 @@ Recorre las once estaciones, entrena el modelo, genera los informes en
 `reports/` y deja el sistema listo para servir predicciones. Tarda unos 11
 segundos.
 
+Con la opción `--comparar` entrena además los cinco modelos de la escalera
+comparativa y los registra en MLflow, para poder verlos en la interfaz del
+paso siguiente. Tarda algo más.
+
+    python scripts/run_pipeline.py --comparar
+    
 **5. Levantar la API**
 
     uvicorn tfm_airquality.api:app

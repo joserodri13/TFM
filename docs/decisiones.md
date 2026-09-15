@@ -1715,6 +1715,42 @@ genera más dudas que valor.
 
 **Consecuencia:** el despliegue en contenedor queda como línea futura.
 
+## 2026-09-15 — Prueba de instalación en limpio
+
+**Contexto:** cloné el repositorio en una carpeta nueva y seguí las
+instrucciones del README como lo haría alguien que abre el proyecto por
+primera vez, sin mi entorno ni el conjunto de datos descargado.
+
+**Fallo detectado y corregido.** El endpoint `/health` devolvía un 503:
+`load_model()` devuelve cuatro valores desde que la estación 9 añadió la
+calibración por horizonte, pero `api.py` seguía desempaquetando tres. La
+API no podía cargar el modelo. Ninguna prueba lo detectó porque
+`test_serve.py` ejerce las funciones de `serve.py` directamente, sin pasar
+por la capa HTTP.
+
+**Limitación documentada.** Veinticinco pruebas fallan si no se ha
+descargado el CSV, porque cargan el conjunto real en lugar de construir
+datos sintéticos. No se corrige ahora: exigiría rehacer los fixtures de
+siete ficheros a dos días de la entrega, con riesgo de romper pruebas que
+hoy funcionan. El README advierte de que `pytest` requiere completar antes
+el paso de descarga.
+
+**Mejoras incorporadas a la API.** Un endpoint raíz que redirige a la
+documentación, en lugar del 404 que devolvía; un ejemplo precargado con
+las 69 variables de una observación real, para que la documentación
+interactiva sea utilizable sin construir la entrada a mano; y un modelo de
+respuesta declarado, que documenta los cinco campos que devuelve
+`/predict`.
+
+**Lección metodológica.** Probar el proyecto desde el punto de vista de
+quien lo recibe detecta fallos que la ejecución diaria oculta: el entorno
+propio tiene el modelo cargado, el conjunto descargado y las rutas
+resueltas. Es el mismo criterio que motivó la estación 2 (Validate): que
+algo funcione en las condiciones habituales no demuestra que funcione.
+
+**Líneas futuras:** fixtures con datos sintéticos que hagan las pruebas
+independientes del origen, y pruebas de la capa HTTP con `TestClient`.
+
 **Conclusiones:**
 
 1. *Añadir una ventana corta aporta.* Con una única ventana de 24 horas el
